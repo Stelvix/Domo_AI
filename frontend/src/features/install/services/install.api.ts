@@ -12,6 +12,10 @@ export interface NetworkInfo {
   primary: string | null;
   port: number;
   serveStatic: boolean;
+  /** L'adresse détectée est celle du conteneur Docker (inaccessible depuis un téléphone). */
+  isContainerAddress: boolean;
+  /** L'IP LAN de la machine hôte a été fournie via HOST_LAN_IP. */
+  hostLanIpConfigured: boolean;
 }
 
 export const systemApi = {

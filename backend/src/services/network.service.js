@@ -40,6 +40,21 @@ export class NetworkService {
   }
 
   /**
+   * Indique si une adresse appartient au réseau bridge de Docker
+   * (172.16.0.0/12), donc inaccessible depuis un smartphone.
+   *
+   * @param {string | null} address
+   * @returns {boolean}
+   */
+  static isContainerAddress(address) {
+    if (!address) return false;
+    const match = /^172\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(address);
+    if (!match) return false;
+    const secondOctet = Number.parseInt(match[1], 10);
+    return secondOctet >= 16 && secondOctet <= 31;
+  }
+
+  /**
    * Adresse LAN joignable depuis un téléphone.
    *
    * Priorité à `HOST_LAN_IP` (IP de la machine hôte, seule joignable depuis le

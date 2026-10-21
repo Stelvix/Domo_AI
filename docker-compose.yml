@@ -16,8 +16,8 @@ services:
       - SERVE_STATIC=true
       # IP LAN de la machine hôte : c'est la seule adresse joignable depuis un
       # smartphone (les interfaces du conteneur sont inaccessibles depuis le LAN).
-      # Surchargeable : HOST_LAN_IP=192.168.1.20 docker compose up -d
-      - HOST_LAN_IP=${HOST_LAN_IP:-$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')}
+      # Injectée par scripts/docker-up.sh (npm run docker:up) qui la détecte.
+      - HOST_LAN_IP=${HOST_LAN_IP:-}
     volumes:
       - aoc_data:/app/data
     extra_hosts:
