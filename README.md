@@ -88,16 +88,30 @@ npm run dev
 Le projet intègre un conteneur unifié servant à la fois l'API et la PWA statique pré-compilée sur un port unique.
 
 ```bash
-# Démarrer le conteneur en arrière-plan
-docker compose up --build -d
+# Détecte l'IP LAN de la machine, construit l'image et démarre le conteneur
+npm run docker:up
 
-# Vérifier les logs de fonctionnement
-docker compose logs -f
+# Consulter les logs en temps réel
+npm run docker:logs
+
+# Arrêter le conteneur
+npm run docker:down
 ```
 
-L'application est disponible immédiatement sur : **`http://localhost:3001`**.
+L'application est disponible immédiatement sur : **`http://localhost:3001`**,
+et depuis votre téléphone sur **`http://<votre-ip-lan>:3001`**.
+
+> **Pourquoi un script ?** Docker Compose n'exécute pas de commande shell dans le
+> fichier de composition. `scripts/docker-up.sh` détecte donc l'IP LAN de la
+> machine (`ipconfig getifaddr` sur macOS, `hostname -I` sur Linux) et l'injecte
+> dans le conteneur via `HOST_LAN_IP`. C'est cette adresse qui est encodée dans le
+> QR code d'installation PWA : les interfaces du conteneur (`172.17.x.x`) ne sont
+> pas joignables depuis un smartphone.
+> Surcharge possible : `HOST_LAN_IP=192.168.1.20 npm run docker:up`.
 
 > **Note Réseau Docker :** Le conteneur utilise `host.docker.internal:host-gateway` pour communiquer directement avec l'instance Ollama de votre machine hôte (`http://host.docker.internal:11434`).
+>
+> **Persistance :** les données (agents, conversations) sont stockées dans le volume Docker `iagentest_aoc_data` et survivent aux redémarrages.
 
 ---
 
@@ -112,6 +126,9 @@ L'application est disponible immédiatement sur : **`http://localhost:3001`**.
 | `npm test` | Exécute la suite de tests unitaires backend (`node --test`) |
 | `npm run prisma:push` | Synchronise le schéma Prisma avec la base de données SQLite |
 | `npm run prisma:studio` | Ouvre l'interface graphique Prisma Studio pour visualiser les données |
+| `npm run docker:up` | Détecte l'IP LAN, construit l'image et démarre le conteneur de production |
+| `npm run docker:logs` | Affiche les logs du conteneur en temps réel |
+| `npm run docker:down` | Arrête et supprime le conteneur |
 
 ---
 
@@ -156,10 +173,10 @@ HOST_LAN_IP="192.168.1.20"             # IP LAN de la machine hôte (QR code PWA
 ```
 
 > **Note conteneur :** l'IP LAN de la machine hôte est détectée automatiquement par
-> `docker-compose.yml` (via `ipconfig getifaddr` / `hostname -I`) et injectée dans
-> `HOST_LAN_IP`. Elle est indispensable au QR code d'installation : les interfaces du
+> `scripts/docker-up.sh` (`npm run docker:up`) et injectée dans `HOST_LAN_IP`.
+> Elle est indispensable au QR code d'installation : les interfaces du
 > conteneur (`172.17.x.x`) ne sont pas joignables depuis un smartphone.
-> Surcharge possible : `HOST_LAN_IP=192.168.1.20 docker compose up -d`.
+> Surcharge possible : `HOST_LAN_IP=192.168.1.20 npm run docker:up`.
 
 ---
 

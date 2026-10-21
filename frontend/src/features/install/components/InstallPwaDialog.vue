@@ -69,6 +69,20 @@
         </span>
       </div>
 
+      <!-- Avertissement : IP de conteneur non joignable depuis un téléphone -->
+      <div
+        v-if="isContainerAddress"
+        class="flex items-start gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-mono"
+      >
+        <AlertTriangle :size="14" class="shrink-0 mt-0.5" />
+        <span>
+          L'adresse détectée (<code class="px-1 rounded bg-amber-500/15">{{ backendPrimaryIp }}</code>)
+          est celle du conteneur Docker : elle est <strong>injoignable depuis un smartphone</strong>.
+          Relancez l'application avec <code class="px-1 rounded bg-amber-500/15">npm run docker:up</code>
+          qui détecte et injecte l'IP de votre machine.
+        </span>
+      </div>
+
       <!-- Instructions par plateforme -->
       <div class="space-y-2">
         <div
@@ -165,6 +179,12 @@ const isDevServer = computed(() => {
   return currentPort !== backendPort.value;
 });
 
+/**
+ * Vrai lorsque l'adresse IP remontée par le backend est celle du conteneur
+ * Docker : le QR code ne serait alors pas scannable depuis un téléphone.
+ */
+const isContainerAddress = ref(false);
+
 const guides = [
   {
     title: 'iPhone / iPad (Safari)',
@@ -234,6 +254,7 @@ watch(
       networkAddresses.value = info.addresses;
       backendPrimaryIp.value = info.primary;
       backendPort.value = info.port;
+      isContainerAddress.value = info.isContainerAddress;
     } catch (error) {
       console.error('[InstallPwaDialog] Informations réseau indisponibles :', error);
     }
