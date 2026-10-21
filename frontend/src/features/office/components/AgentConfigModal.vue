@@ -1,37 +1,22 @@
 <template>
-  <div
-    v-if="isOpen && agent"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in"
-    @click.self="$emit('close')"
-  >
-    <div
-      class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
-    >
-      <!-- Modal Header -->
-      <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/40">
-        <div class="flex items-center space-x-3">
-          <PixelAvatar :sprite-id="form.avatarSprite" :status="agent.status" :size="36" />
-          <div>
-            <h2 class="text-sm font-bold font-mono text-slate-100">
-              Configurer l'Agent : {{ form.displayName || agent.modelName }}
-            </h2>
-            <p class="text-xs text-slate-400 font-mono">{{ agent.modelName }}</p>
-          </div>
+  <Dialog :open="isOpen && !!agent" @update:open="val => { if (!val) $emit('close'); }">
+    <div v-if="agent" class="space-y-4">
+      <!-- Dialog Header -->
+      <div class="flex items-center space-x-3 pb-3 border-b border-border">
+        <PixelAvatar :sprite-id="form.avatarSprite" :status="agent.status" :size="38" />
+        <div class="truncate">
+          <h3 class="text-sm font-bold font-mono text-foreground truncate">
+            Configurer {{ form.displayName || agent.modelName }}
+          </h3>
+          <p class="text-[11px] text-muted-foreground font-mono truncate">{{ agent.modelName }}</p>
         </div>
-        <button
-          type="button"
-          class="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-          @click="$emit('close')"
-        >
-          <X :size="18" />
-        </button>
       </div>
 
-      <!-- Modal Body (Form) -->
-      <div class="p-6 space-y-4 overflow-y-auto flex-1 font-sans text-xs">
-        <!-- Choix du sprite Pixel Art -->
+      <!-- Dialog Body -->
+      <div class="space-y-4 text-xs font-mono">
+        <!-- Avatar Style Selection -->
         <div>
-          <label class="block font-mono font-semibold text-slate-300 mb-2">Style d'avatar Pixel Art</label>
+          <label class="block text-xs font-bold text-foreground mb-2">Sprite Pixel Art</label>
           <div class="grid grid-cols-6 gap-2">
             <button
               v-for="sId in spriteOptions"
@@ -40,44 +25,41 @@
               class="p-2 rounded-xl border flex flex-col items-center justify-center transition-all"
               :class="[
                 form.avatarSprite === sId
-                  ? 'border-sky-400 bg-sky-950/50 ring-2 ring-sky-400/30'
-                  : 'border-slate-800 bg-slate-950/40 hover:border-slate-700',
+                  ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                  : 'border-border bg-background/50 hover:border-primary/50',
               ]"
               @click="form.avatarSprite = sId"
             >
-              <PixelAvatar :sprite-id="sId" :size="32" />
+              <PixelAvatar :sprite-id="sId" :size="30" />
             </button>
           </div>
         </div>
 
-        <!-- Nom d'affichage -->
+        <!-- Display Name -->
         <div>
-          <label class="block font-mono font-semibold text-slate-300 mb-1">Nom personnalisé du bureau</label>
-          <input
+          <label class="block text-xs font-bold text-foreground mb-1.5">Nom d'affichage</label>
+          <Input
             v-model="form.displayName"
-            type="text"
-            placeholder="Ex: Lead Architecte IA"
-            class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 font-mono text-xs"
+            placeholder="Ex: Lead Développeur IA"
           />
         </div>
 
-        <!-- Rôle Métier & Presets -->
+        <!-- Role & Presets -->
         <div>
-          <label class="block font-mono font-semibold text-slate-300 mb-1">Rôle Métier Attribué</label>
-          <input
+          <label class="block text-xs font-bold text-foreground mb-1.5">Rôle Métier Attribué</label>
+          <Input
             v-model="form.role"
-            type="text"
-            placeholder="Ex: Développeur Senior Full-Stack"
-            class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-sky-500 font-mono text-xs mb-2"
+            placeholder="Ex: Lead Développeur Full-Stack"
+            class="mb-2"
           />
 
-          <!-- Presets rapides de rôles -->
+          <!-- Quick Presets -->
           <div class="flex flex-wrap gap-1.5">
             <button
               v-for="preset in rolePresets"
               :key="preset.name"
               type="button"
-              class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-mono text-slate-300 transition-colors"
+              class="px-2 py-1 rounded-md bg-secondary hover:bg-secondary/80 text-[10px] text-secondary-foreground border border-border/80 transition-colors"
               @click="applyPreset(preset)"
             >
               + {{ preset.name }}
@@ -85,47 +67,40 @@
           </div>
         </div>
 
-        <!-- Prompt Système Métier -->
+        <!-- Custom System Prompt -->
         <div>
-          <div class="flex items-center justify-between mb-1">
-            <label class="font-mono font-semibold text-slate-300">Prompt Système (Injecté dans Ollama)</label>
-            <span class="text-[10px] text-slate-400 font-mono">Injecté à chaque interaction</span>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-bold text-foreground">Prompt Système Injecté</label>
+            <span class="text-[10px] text-muted-foreground">Injecté à chaque requête</span>
           </div>
-          <textarea
+          <Textarea
             v-model="form.systemPrompt"
             rows="4"
-            placeholder="Instructions de comportement pour ce modèle..."
-            class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-sky-500 font-mono text-xs resize-none"
-          ></textarea>
+            placeholder="Instructions de comportement pour ce LLM..."
+            class="resize-none text-xs leading-relaxed"
+          />
         </div>
       </div>
 
-      <!-- Modal Footer -->
-      <div class="px-6 py-3.5 border-t border-slate-800 bg-slate-950/60 flex items-center justify-end space-x-2">
-        <button
-          type="button"
-          class="px-3.5 py-1.5 rounded-lg text-xs font-mono font-medium text-slate-400 hover:text-slate-200 transition-colors"
-          @click="$emit('close')"
-        >
+      <!-- Dialog Footer -->
+      <div class="pt-3 border-t border-border flex items-center justify-end space-x-2">
+        <Button variant="ghost" size="sm" @click="$emit('close')">
           Annuler
-        </button>
-        <button
-          type="button"
-          :disabled="isSaving"
-          class="flex items-center space-x-1.5 px-4 py-1.5 rounded-lg text-xs font-mono font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow-md shadow-sky-600/20 transition-all active:scale-95 disabled:opacity-50"
-          @click="save"
-        >
-          <Save :size="14" />
-          <span>{{ isSaving ? 'Sauvegarde...' : 'Enregistrer' }}</span>
-        </button>
+        </Button>
+        <Button variant="default" size="sm" :loading="isSaving" @click="save">
+          Enregistrer
+        </Button>
       </div>
     </div>
-  </div>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { X, Save } from 'lucide-vue-next';
+import Dialog from '@/components/ui/Dialog.vue';
+import Input from '@/components/ui/Input.vue';
+import Textarea from '@/components/ui/Textarea.vue';
+import Button from '@/components/ui/Button.vue';
 import PixelAvatar from './PixelAvatar.vue';
 import type { Agent, UpdateAgentPayload } from '@/types/agent';
 

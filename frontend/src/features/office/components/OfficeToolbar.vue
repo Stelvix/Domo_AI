@@ -1,84 +1,108 @@
 <template>
-  <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 sticky top-0 z-30 shadow-md">
-    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-      <!-- Logo AOC & Status Global -->
-      <div class="flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-start">
-        <div class="flex items-center space-x-2.5">
-          <!-- Pixel Art Icon AOC -->
-          <div class="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-400/30 flex items-center justify-center text-sky-400 font-bold font-mono text-xs shadow-inner">
+  <header class="sticky top-0 z-30 border-b border-border/80 bg-background/80 backdrop-blur-xl px-4 py-3 shadow-md">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+      <!-- Left: Logo AOC & Navigation Tabs -->
+      <div class="flex items-center justify-between w-full md:w-auto space-x-4">
+        <!-- Logo Hologramme AOC -->
+        <div class="flex items-center space-x-2.5 cursor-pointer" @click="$emit('update:activeTab', 'office')">
+          <div class="relative w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/20 to-sky-500/10 border border-cyan-500/40 flex items-center justify-center text-cyan-400 font-bold font-mono text-xs shadow-[0_0_15px_rgba(6,182,212,0.25)]">
             AOC
+            <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
           </div>
           <div>
-            <h1 class="text-xs sm:text-sm font-bold font-mono tracking-wider text-slate-100 flex items-center gap-1.5">
-              <span>PIXEL OFFICE</span>
-              <span class="text-[10px] font-normal px-1.5 py-0.2 rounded bg-slate-800 border border-slate-700 text-sky-400">PWA</span>
-            </h1>
-            <p class="text-[11px] text-slate-400 hidden sm:block">Agent Operations Center • Local LLM Workstation</p>
+            <div class="flex items-center space-x-1.5">
+              <span class="font-mono font-bold text-sm tracking-wider text-slate-100">PIXEL OFFICE</span>
+              <Badge variant="neon" class="text-[9px] px-1.5 py-0">v1.0</Badge>
+            </div>
+            <p class="text-[10px] text-muted-foreground font-mono hidden sm:block">Agent Operations Center • Local LLMs</p>
           </div>
         </div>
 
-        <!-- Statut de Connexion Ollama -->
-        <div
-          class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-mono border"
-          :class="{
-            'bg-emerald-500/10 text-emerald-400 border-emerald-500/30': isOllamaConnected,
-            'bg-amber-500/10 text-amber-400 border-amber-500/30': !isOllamaConnected,
-          }"
-          :title="isOllamaConnected ? 'Connecté à l\'API Ollama locale' : 'Impossible de joindre Ollama sur localhost:11434'"
-        >
-          <span
-            class="w-2 h-2 rounded-full"
-            :class="isOllamaConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'"
-          ></span>
-          <span class="text-[11px] font-medium">
-            {{ isOllamaConnected ? `${onlineCount} en ligne` : 'Ollama Hors-ligne' }}
-          </span>
-        </div>
+        <!-- Mode Switcher Tabs (Bureau / Moniteur) -->
+        <TabsList class="h-8">
+          <TabsTrigger
+            value="office"
+            class="h-7 text-[11px] px-2.5"
+            :class="{ 'bg-background text-primary shadow-sm': activeTab === 'office' }"
+            @click="$emit('update:activeTab', 'office')"
+          >
+            <LayoutGrid :size="12" class="mr-1.5" />
+            <span>Bureau</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="monitor"
+            class="h-7 text-[11px] px-2.5"
+            :class="{ 'bg-background text-primary shadow-sm': activeTab === 'monitor' }"
+            @click="$emit('update:activeTab', 'monitor')"
+          >
+            <BarChart2 :size="12" class="mr-1.5" />
+            <span>Moniteur HUD</span>
+          </TabsTrigger>
+        </TabsList>
       </div>
 
-      <!-- Barre d'outils / Recherche / Bouton de synchronisation -->
-      <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
-        <!-- Champ de recherche rapide -->
-        <div class="relative flex-1 sm:w-56">
-          <Search class="absolute left-2.5 top-2.5 text-slate-400" :size="14" />
-          <input
-            :value="searchQuery"
-            type="text"
-            placeholder="Filtrer agent, rôle..."
-            class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 font-mono transition-all"
-            @input="$emit('update:searchQuery', ($event.target as HTMLInputElement).value)"
-          />
-        </div>
+      <!-- Right: Command Palette, Status & Sync Action -->
+      <div class="flex items-center space-x-2 w-full md:w-auto justify-end">
+        <!-- Command Palette Trigger Button (Cmd + K) -->
+        <Button
+          variant="outline"
+          size="sm"
+          class="hidden sm:inline-flex text-muted-foreground hover:text-foreground font-mono text-xs h-8 px-3"
+          @click="$emit('openCommandMenu')"
+        >
+          <Search :size="13" class="mr-2 text-muted-foreground" />
+          <span>Recherche rapide...</span>
+          <kbd class="ml-2 pointer-events-none inline-flex h-4 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[9px] font-medium text-muted-foreground">
+            ⌘K
+          </kbd>
+        </Button>
 
-        <!-- Bouton Synchronisation Ollama -->
-        <button
-          type="button"
+        <!-- Ollama Connection Status Badge -->
+        <Badge
+          :variant="isOllamaConnected ? 'success' : 'warning'"
+          class="h-8 px-2.5 text-xs font-mono"
+        >
+          <span
+            class="w-2 h-2 rounded-full mr-1.5"
+            :class="isOllamaConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'"
+          ></span>
+          <span>{{ isOllamaConnected ? `${onlineCount} en ligne` : 'Ollama Hors-ligne' }}</span>
+        </Badge>
+
+        <!-- Sync Button with Spinner -->
+        <Button
+          variant="default"
+          size="sm"
           :disabled="isSyncing"
-          class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 transition-all active:scale-95 disabled:opacity-50"
-          title="Détecter et synchroniser les modèles depuis Ollama"
+          class="h-8 px-3"
           @click="$emit('sync')"
         >
-          <RefreshCw :size="13" :class="{ 'animate-spin text-sky-400': isSyncing }" />
-          <span class="hidden sm:inline">{{ isSyncing ? 'Scan...' : 'Sync Ollama' }}</span>
-        </button>
+          <RefreshCw :size="13" class="mr-1.5" :class="{ 'animate-spin': isSyncing }" />
+          <span>{{ isSyncing ? 'Scan...' : 'Sync' }}</span>
+        </Button>
       </div>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
-import { RefreshCw, Search } from 'lucide-vue-next';
+import { LayoutGrid, BarChart2, Search, RefreshCw } from 'lucide-vue-next';
+import Button from '@/components/ui/Button.vue';
+import Badge from '@/components/ui/Badge.vue';
+import TabsList from '@/components/ui/TabsList.vue';
+import TabsTrigger from '@/components/ui/TabsTrigger.vue';
 
 defineProps<{
   isOllamaConnected: boolean;
   onlineCount: number;
   totalCount: number;
   isSyncing: boolean;
-  searchQuery: string;
+  activeTab: 'office' | 'monitor';
 }>();
 
 defineEmits<{
   (e: 'sync'): void;
-  (e: 'update:searchQuery', query: string): void;
+  (e: 'update:activeTab', tab: 'office' | 'monitor'): void;
+  (e: 'openCommandMenu'): void;
 }>();
 </script>

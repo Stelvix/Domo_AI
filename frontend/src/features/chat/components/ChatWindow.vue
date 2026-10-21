@@ -1,67 +1,65 @@
 <template>
   <div
     v-if="isOpen && agent"
-    class="fixed inset-0 z-50 flex justify-end bg-slate-950/70 backdrop-blur-xs animate-fade-in"
+    class="fixed inset-0 z-50 flex justify-end bg-background/80 backdrop-blur-sm animate-in fade-in duration-200"
     @click.self="$emit('close')"
   >
     <!-- Slide-over Drawer Container -->
     <div
-      class="w-full sm:max-w-2xl md:max-w-3xl lg:max-w-4xl h-full bg-slate-950 border-l border-slate-800 flex flex-col shadow-2xl overflow-hidden"
+      class="w-full sm:max-w-2xl md:max-w-3xl lg:max-w-4xl h-full bg-card/95 border-l border-border flex flex-col shadow-2xl backdrop-blur-2xl overflow-hidden animate-in slide-in-from-right duration-300"
     >
       <!-- Chat Header -->
-      <div class="px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-3">
+      <div class="px-4 py-3 bg-card border-b border-border flex items-center justify-between gap-3">
         <!-- Agent Identity & Avatar -->
         <div class="flex items-center space-x-3 truncate">
-          <PixelAvatar :sprite-id="agent.avatarSprite" :status="agent.status" :size="38" />
+          <PixelAvatar :sprite-id="agent.avatarSprite" :status="agent.status" :size="40" />
           <div class="truncate">
             <div class="flex items-center space-x-2">
-              <h2 class="text-sm font-bold font-mono text-slate-100 truncate">
+              <h2 class="text-sm font-bold font-mono text-foreground truncate">
                 {{ agent.displayName || agent.modelName }}
               </h2>
-              <span
-                class="w-2 h-2 rounded-full"
-                :class="{
-                  'bg-emerald-400 animate-pulse': agent.status === 'online',
-                  'bg-amber-400 animate-ping': agent.status === 'thinking',
-                  'bg-slate-500': agent.status === 'offline',
-                }"
-              ></span>
+              <Badge :variant="agent.status === 'online' ? 'success' : agent.status === 'thinking' ? 'warning' : 'secondary'" class="text-[9px] px-1.5 py-0">
+                {{ agent.status }}
+              </Badge>
             </div>
-            <p class="text-[11px] font-mono text-slate-400 truncate">{{ agent.modelName }}</p>
+            <p class="text-[11px] font-mono text-muted-foreground truncate">{{ agent.modelName }}</p>
           </div>
         </div>
 
         <!-- Role Badge & Header Actions -->
-        <div class="flex items-center space-x-2">
+        <div class="flex items-center space-x-1.5">
           <RoleSelector :role="agent.role" :system-prompt="agent.systemPrompt" class="hidden sm:flex" />
 
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-8 w-8 text-muted-foreground"
+            :class="{ 'bg-accent text-primary': showSidebar }"
             title="Historique des discussions"
-            class="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-            :class="{ 'bg-slate-800 text-sky-400': showSidebar }"
             @click="showSidebar = !showSidebar"
           >
-            <History :size="16" />
-          </button>
+            <History :size="15" />
+          </Button>
 
-          <button
-            type="button"
-            title="Configurer l'agent"
-            class="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-8 w-8 text-muted-foreground"
+            title="Paramètres de l'agent"
             @click="$emit('configure', agent)"
           >
-            <Settings :size="16" />
-          </button>
+            <Settings :size="15" />
+          </Button>
 
-          <button
-            type="button"
-            title="Fermer le terminal"
-            class="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-8 w-8 text-muted-foreground"
+            title="Fermer"
             @click="$emit('close')"
           >
-            <X :size="18" />
-          </button>
+            <X :size="16" />
+          </Button>
         </div>
       </div>
 
@@ -70,29 +68,30 @@
         <!-- Conversation Sidebar (Collapsible) -->
         <div
           v-if="showSidebar"
-          class="w-64 border-r border-slate-800 bg-slate-900/90 flex flex-col absolute inset-y-0 left-0 z-20 sm:static shadow-xl transition-all"
+          class="w-64 border-r border-border bg-card/90 flex flex-col absolute inset-y-0 left-0 z-20 sm:static shadow-xl transition-all"
         >
-          <div class="p-3 border-b border-slate-800 flex items-center justify-between">
-            <span class="text-xs font-mono font-bold text-slate-300">Discussions</span>
-            <button
-              type="button"
-              class="flex items-center space-x-1 px-2 py-1 rounded bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-mono font-semibold"
+          <div class="p-3 border-b border-border flex items-center justify-between">
+            <span class="text-xs font-mono font-bold text-foreground">Discussions</span>
+            <Button
+              variant="default"
+              size="sm"
+              class="h-7 text-[11px] px-2.5"
               @click="startNewChat"
             >
-              <Plus :size="12" />
+              <Plus :size="12" class="mr-1" />
               <span>Nouveau</span>
-            </button>
+            </Button>
           </div>
 
           <div class="flex-1 overflow-y-auto p-2 space-y-1">
             <div
               v-for="conv in conversations"
               :key="conv.id"
-              class="group flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-mono transition-colors cursor-pointer"
+              class="group flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-mono transition-colors cursor-pointer border"
               :class="[
                 conv.id === activeConversationId
-                  ? 'bg-sky-950/70 text-sky-300 border border-sky-800/60'
-                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200',
+                  ? 'bg-primary/10 text-primary border-primary/30'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground border-transparent',
               ]"
               @click="selectConv(conv.id)"
             >
@@ -103,21 +102,21 @@
               <button
                 type="button"
                 title="Supprimer"
-                class="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-rose-400 transition-opacity"
+                class="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive transition-opacity"
                 @click.stop="deleteConv(conv.id)"
               >
                 <Trash2 :size="12" />
               </button>
             </div>
 
-            <div v-if="conversations.length === 0" class="p-4 text-center text-xs text-slate-500 font-mono">
+            <div v-if="conversations.length === 0" class="p-4 text-center text-xs text-muted-foreground font-mono">
               Aucun historique pour cet agent.
             </div>
           </div>
         </div>
 
         <!-- Message List & Chat View -->
-        <div class="flex-1 flex flex-col bg-slate-950 overflow-hidden">
+        <div class="flex-1 flex flex-col bg-background/50 overflow-hidden">
           <!-- Messages Scrollable Thread -->
           <div ref="messageThreadRef" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-2">
             <!-- Messages List -->
@@ -131,21 +130,21 @@
             <!-- Empty Chat State -->
             <div
               v-if="messages.length === 0"
-              class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500"
+              class="h-full flex flex-col items-center justify-center text-center p-6 text-muted-foreground"
             >
               <PixelAvatar :sprite-id="agent.avatarSprite" :status="agent.status" :size="48" class="mb-3" />
-              <h4 class="text-xs font-mono font-bold text-slate-300 mb-1">
-                Poste connecté : {{ agent.displayName || agent.modelName }}
+              <h4 class="text-xs font-mono font-bold text-foreground mb-1">
+                Session Active : {{ agent.displayName || agent.modelName }}
               </h4>
-              <p class="text-[11px] font-mono max-w-sm text-slate-400 leading-relaxed mb-4">
-                Posez vos questions techniques, demandez une analyse ou commencez une session de pair-programming.
+              <p class="text-[11px] font-mono max-w-sm text-muted-foreground leading-relaxed mb-4">
+                Posez vos questions ou demandez une analyse. Le prompt système est injecté automatiquement.
               </p>
               <div class="flex flex-wrap gap-1.5 justify-center max-w-md">
                 <button
                   v-for="prompt in quickPrompts"
                   :key="prompt"
                   type="button"
-                  class="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-300 hover:border-sky-500 hover:text-sky-400 transition-colors"
+                  class="px-2.5 py-1.5 rounded-lg bg-card border border-border text-[11px] font-mono text-foreground hover:border-primary hover:text-primary transition-colors shadow-xs"
                   @click="sendQuickPrompt(prompt)"
                 >
                   "{{ prompt }}"
@@ -155,47 +154,49 @@
           </div>
 
           <!-- Error Alert Banner -->
-          <div v-if="error" class="mx-4 mb-2 p-2.5 rounded-lg bg-rose-950/60 border border-rose-800 text-rose-300 text-xs font-mono flex items-center justify-between">
+          <div v-if="error" class="mx-4 mb-2 p-2.5 rounded-lg bg-destructive/20 border border-destructive/50 text-destructive-foreground text-xs font-mono flex items-center justify-between">
             <span>{{ error }}</span>
-            <button type="button" class="text-rose-400 hover:text-rose-200" @click="error = null">
+            <button type="button" class="text-destructive-foreground hover:opacity-80" @click="error = null">
               <X :size="14" />
             </button>
           </div>
 
           <!-- Chat Input Area -->
-          <div class="p-3 sm:p-4 bg-slate-900 border-t border-slate-800">
+          <div class="p-3 sm:p-4 bg-card/80 border-t border-border">
             <div class="relative flex items-end space-x-2">
               <textarea
                 v-model="inputContent"
                 ref="textareaRef"
                 rows="1"
                 placeholder="Écrivez un message (Entrée pour envoyer, Maj+Entrée pour saut de ligne)..."
-                class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 resize-none font-sans max-h-32 transition-all leading-normal"
+                class="flex-1 bg-background/80 border border-border rounded-xl px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-none font-sans max-h-32 transition-all leading-normal shadow-inner"
                 @keydown.enter.exact.prevent="handleSend"
                 @input="autoResize"
               ></textarea>
 
               <!-- Bouton Arrêter ou Envoyer -->
-              <button
+              <Button
                 v-if="isGenerating"
-                type="button"
-                class="px-3.5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-mono font-semibold shadow-md transition-all active:scale-95 flex items-center space-x-1"
+                variant="destructive"
+                size="default"
+                class="h-10 px-3.5 rounded-xl font-mono"
                 @click="stopGeneration"
               >
-                <Square :size="13" class="fill-current" />
+                <Square :size="13" class="fill-current mr-1" />
                 <span class="hidden sm:inline">Stop</span>
-              </button>
+              </Button>
 
-              <button
+              <Button
                 v-else
-                type="button"
+                variant="default"
+                size="default"
                 :disabled="!inputContent.trim() || agent.status === 'offline'"
-                class="px-3.5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-mono font-semibold shadow-md shadow-sky-600/20 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1"
+                class="h-10 px-4 rounded-xl font-mono shadow-md"
                 @click="handleSend"
               >
-                <Send :size="13" />
+                <Send :size="13" class="sm:mr-1.5" />
                 <span class="hidden sm:inline">Envoyer</span>
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -216,6 +217,8 @@ import {
   MessageSquare,
   Trash2,
 } from 'lucide-vue-next';
+import Button from '@/components/ui/Button.vue';
+import Badge from '@/components/ui/Badge.vue';
 import PixelAvatar from '@/features/office/components/PixelAvatar.vue';
 import RoleSelector from './RoleSelector.vue';
 import MessageBubble from './MessageBubble.vue';
@@ -253,8 +256,8 @@ const textareaRef = ref<HTMLTextAreaElement | null>(null);
 
 const quickPrompts = [
   'Présente-toi et décris tes compétences clés.',
-  'Comment optimiser une architecture Node.js / Express ?',
-  'Écris un exemple de composable Vue 3 avec TypeScript.',
+  'Comment optimiser une architecture logicielle moderne ?',
+  'Écris un composant Vue 3 avec TypeScript et Tailwind.',
 ];
 
 // Chargement des conversations à l'ouverture pour l'agent actif
