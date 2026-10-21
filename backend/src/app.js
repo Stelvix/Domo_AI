@@ -7,6 +7,7 @@ import { env, isOriginAllowed } from './config/env.js';
 import { ollamaService } from './services/ollama.service.js';
 import agentRoutes from './routes/agent.routes.js';
 import chatRoutes from './routes/chat.routes.js';
+import systemRoutes from './routes/system.routes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -59,6 +60,7 @@ app.get('/api/health', async (req, res) => {
 // Mounting Business Domain Routes
 app.use('/api/agents', agentRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/system', systemRoutes);
 
 // Production Static Serving for Vue 3 PWA
 if (env.SERVE_STATIC && fs.existsSync(frontendDistPath)) {
