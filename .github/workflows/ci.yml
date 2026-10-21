@@ -33,7 +33,15 @@ jobs:
         run: cp backend/.env.example backend/.env
 
       - name: Install Monorepo Dependencies
-        run: npm ci
+        run: |
+          # Re-tentatives : le registre npm peut réinitialiser la connexion.
+          for attempt in 1 2 3; do
+            if npm ci; then exit 0; fi
+            echo "::warning::npm ci a échoué (tentative $attempt/3)"
+            sleep 15
+          done
+          echo "::error::Impossible d'installer les dépendances."
+          exit 1
 
       - name: Validate Prisma Schema
         run: npx prisma validate --schema=backend/prisma/schema.prisma
@@ -63,7 +71,15 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install Monorepo Dependencies
-        run: npm ci
+        run: |
+          # Re-tentatives : le registre npm peut réinitialiser la connexion.
+          for attempt in 1 2 3; do
+            if npm ci; then exit 0; fi
+            echo "::warning::npm ci a échoué (tentative $attempt/3)"
+            sleep 15
+          done
+          echo "::error::Impossible d'installer les dépendances."
+          exit 1
 
       - name: Build & Typecheck Vue PWA
         run: npm run build --workspace=frontend
@@ -100,7 +116,22 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Production Image
-        run: docker build -t ollama-pixel-office:ci .
+        run: |
+          # Le registre npm coupe parfois la connexion (ECONNRESET) sur les
+          # runners : on réessaie le build plutôt que de faire échouer la
+          # pipeline pour une aléa réseau.
+          for attempt in 1 2 3; do
+            echo "::group::Build de l'image (tentative $attempt/3)"
+            if docker build -t ollama-pixel-office:ci .; then
+              echo "::endgroup::"
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "Tentative $attempt échouée, nouvel essai dans 20s..."
+            sleep 20
+          done
+          echo "::error::Le build de l'image de production a échoué après 3 tentatives."
+          exit 1
 
       - name: Start Production Container
         run: |
