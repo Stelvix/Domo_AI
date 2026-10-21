@@ -1,0 +1,41 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model AgentConfig {
+  id           String        @id @default(uuid())
+  modelName    String        @unique // Nom exact dans Ollama (ex: "llama3:latest")
+  displayName  String?       // Nom personnalisé dans le bureau pixel art
+  role         String?       // Rôle attribué (ex: "Développeur Senior", "Expert DevOps")
+  systemPrompt String?       // Prompt système spécifique injecté au LLM pour ce rôle
+  positionX    Int           @default(0) // Position X dans la grille pixel art
+  positionY    Int           @default(0) // Position Y dans la grille pixel art
+  avatarSprite String?       // Identifiant du sprite pixel art associé
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  conversations Conversation[]
+}
+
+model Conversation {
+  id        String       @id @default(uuid())
+  title     String       @default("Nouvelle discussion")
+  agentId   String
+  agent     AgentConfig  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String       // "user" ou "assistant"
+  content        String       // Contenu du message
+  createdAt      DateTime     @default(now())
+}
