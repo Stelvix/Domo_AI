@@ -1,6 +1,6 @@
 import { computed } from 'vue';
 import { useAgentStore } from '@/stores/agent.store';
-import type { UpdateAgentPayload } from '@/types/agent';
+import type { CreateAgentPayload, UpdateAgentPayload } from '@/types/agent';
 
 export function useAgents() {
   const store = useAgentStore();
@@ -23,6 +23,7 @@ export function useAgents() {
   const moveAgent = (id: string, positionX: number, positionY: number) =>
     store.moveAgent(id, positionX, positionY);
   const removeAgent = (id: string) => store.removeAgent(id);
+  const createAgent = (payload: CreateAgentPayload) => store.createAgent(payload);
   const clearError = () => store.clearError();
   const getAgentAtPosition = (x: number, y: number) => store.getAgentAtPosition(x, y);
 
@@ -46,6 +47,7 @@ export function useAgents() {
     updateAgent,
     moveAgent,
     removeAgent,
+    createAgent,
     clearError,
     getAgentAtPosition,
   };

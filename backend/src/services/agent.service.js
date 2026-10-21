@@ -217,6 +217,87 @@ export class AgentService {
   }
 
   /**
+   * Crée un nouvel assistant depuis l'interface.
+   *
+   * Le modèle doit être installé dans Ollama et ne pas être déjà affecté à un
+   * agent (contrainte d'unicité sur `modelName`). La position est attribuée
+   * automatiquement sur le premier bureau libre si elle n'est pas fournie.
+   *
+   * @param {{ modelName: string, displayName?: string, role?: string, systemPrompt?: string,
+   *           avatarSprite?: string, positionX?: number, positionY?: number }} payload
+   */
+  async createAgent(payload = {}) {
+    const modelName = typeof payload.modelName === 'string' ? payload.modelName.trim() : '';
+
+    if (!modelName) {
+      const err = new Error('Le champ "modelName" est requis pour créer un assistant.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    // Le modèle doit exister dans Ollama pour éviter de créer un agent inutilisable.
+    let ollamaModels = [];
+    try {
+      ollamaModels = await this.ollamaService.getLocalModels();
+    } catch (err) {
+      const unavailable = new Error(
+        `Impossible de vérifier les modèles Ollama : ${err.message}. Créez l'assistant après le démarrage d'Ollama.`
+      );
+      unavailable.statusCode = 503;
+      unavailable.code = 'OLLAMA_UNAVAILABLE';
+      throw unavailable;
+    }
+
+    const availableModel = ollamaModels.find((model) => model.name === modelName);
+    if (!availableModel) {
+      const err = new Error(
+        `Le modèle "${modelName}" n'est pas installé dans Ollama. Utilisez "ollama pull ${modelName}" puis synchronisez.`
+      );
+      err.statusCode = 400;
+      throw err;
+    }
+
+    // Unicité : un seul agent par modèle (contrainte de base de données).
+    const existing = await this.agentRepository.findByModelName(modelName);
+    if (existing) {
+      const err = new Error(
+        `Le modèle "${modelName}" est déjà affecté à l'assistant "${existing.displayName || existing.modelName}". Modifiez-le plutôt que d'en créer un second.`
+      );
+      err.statusCode = 409;
+      err.code = 'MODEL_ALREADY_ASSIGNED';
+      throw err;
+    }
+
+    const agents = await this.agentRepository.findAll();
+    const occupied = new Set(agents.map((agent) => `${agent.positionX}:${agent.positionY}`));
+
+    const hasCustomPosition =
+      Number.isInteger(payload.positionX) && Number.isInteger(payload.positionY);
+
+    const position = hasCustomPosition
+      ? {
+          x: this.#sanitizePosition(payload.positionX),
+          y: this.#sanitizePosition(payload.positionY),
+        }
+      : AgentService.findFreeSlot(occupied, env.OFFICE_GRID_COLUMNS);
+
+    const defaultRole = AgentService.resolveDefaultRole(modelName);
+    const finalRole = payload.role?.trim() || defaultRole;
+
+    return this.agentRepository.create({
+      modelName,
+      displayName: payload.displayName?.trim() || modelName.split(':')[0].toUpperCase(),
+      role: finalRole,
+      systemPrompt:
+        payload.systemPrompt?.trim() ||
+        `Tu es un agent spécialisé au sein du bureau AOC (Agent Operations Center). Ton rôle : ${finalRole}. Réponds avec rigueur, concision et structure.`,
+      avatarSprite: payload.avatarSprite || 'agent-1',
+      positionX: position.x,
+      positionY: position.y,
+    });
+  }
+
+  /**
    * Normalise une coordonnée de grille (entier positif borné).
    */
   #sanitizePosition(value) {

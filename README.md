@@ -9,6 +9,8 @@ Conçu sous la forme d'une **PWA (Progressive Web App)** moderne et responsive (
 ## 🌟 Fonctionnalités Clés
 
 * **🏢 Bureau Virtuel Pixel Art Positionnel :** chaque modèle Ollama détecté occupe un poste de travail sur une grille d'open-space (état en direct : *En ligne*, *En réflexion*, *Hors-ligne*). Glissez-déposez les agents d'un bureau à l'autre pour réorganiser l'espace de travail (les positions sont persistées en base).
+* **➕ Création d'Assistant depuis l'Interface :** installez un nouvel assistant en quelques clics : choix du modèle Ollama, nom d'affichage, rôle métier (préréglages Dev / DevOps / Code Reviewer / Rédacteur), sprite pixel art et prompt système. Le bureau libre est attribué automatiquement.
+* **📲 Installation PWA par QR Code :** le bouton « Installer » affiche un QR code de l'URL d'installation (adresse IP réseau local) à scanner avec votre téléphone, accompagné des procédures iOS / Android / desktop.
 * **💬 Terminal de Discussion & Streaming SSE :** échanges instantanés en streaming temps réel via **Server-Sent Events (SSE)** avec support du formatage **Markdown**, **copie de code** en un clic et affichage du **raisonnement interne** des modèles *thinking* (Qwen3, DeepSeek R1...).
 * **🎭 Injection Dynamique de Rôles Métier :** personnalisation des rôles (*Lead Développeur*, *Expert DevOps*, *Auditeur de Code*, etc.) et injection automatique d'un prompt système composite (rôle global AOC + rôle métier + prompt spécifique) dans Ollama lors des inférences.
 * **🔄 Synchronisation Automatique avec Ollama :** détection des nouveaux modèles téléchargés (`ollama pull`) et import automatique en un clic, sans jamais écraser votre configuration personnalisée.
@@ -119,6 +121,7 @@ L'application est disponible immédiatement sur : **`http://localhost:3001`**.
 | :--- | :--- | :--- |
 | `GET` | `/api/health` | État de l'API + joignabilité et version d'Ollama |
 | `GET` | `/api/agents` | Liste des agents avec statut et métadonnées du modèle |
+| `POST` | `/api/agents` | Crée un nouvel assistant (modèle Ollama + rôle métier) |
 | `POST` | `/api/agents/sync` | Synchronise les modèles Ollama (import non destructif) |
 | `GET` | `/api/agents/:id` | Détails d'un agent |
 | `PUT` | `/api/agents/:id` | Met à jour rôle, prompt, sprite et position |
@@ -129,6 +132,8 @@ L'application est disponible immédiatement sur : **`http://localhost:3001`**.
 | `POST` | `/api/chat/conversations` | Crée une nouvelle conversation |
 | `GET` | `/api/chat/conversations/:id/messages` | Messages d'une conversation |
 | `DELETE` | `/api/chat/conversations/:id` | Supprime une conversation |
+| `GET` | `/api/ollama/models` | Modèles Ollama installés + état d'affectation aux agents |
+| `GET` | `/api/system/network` | Adresses IP LAN (URL d'installation PWA pour le QR code) |
 
 ---
 
@@ -147,7 +152,14 @@ OLLAMA_TIMEOUT_MS=600000               # Timeout de génération (chargement du 
 SSE_HEARTBEAT_INTERVAL_MS=15000        # Intervalle des keep-alive SSE
 CHAT_HISTORY_LIMIT=20                  # Messages d'historique réinjectés dans le contexte
 OFFICE_GRID_COLUMNS=4                  # Colonnes de la grille pixel art
+HOST_LAN_IP="192.168.1.20"             # IP LAN de la machine hôte (QR code PWA, requis en conteneur)
 ```
+
+> **Note conteneur :** l'IP LAN de la machine hôte est détectée automatiquement par
+> `docker-compose.yml` (via `ipconfig getifaddr` / `hostname -I`) et injectée dans
+> `HOST_LAN_IP`. Elle est indispensable au QR code d'installation : les interfaces du
+> conteneur (`172.17.x.x`) ne sont pas joignables depuis un smartphone.
+> Surcharge possible : `HOST_LAN_IP=192.168.1.20 docker compose up -d`.
 
 ---
 

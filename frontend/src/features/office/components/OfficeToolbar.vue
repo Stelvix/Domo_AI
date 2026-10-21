@@ -78,6 +78,18 @@
           </kbd>
         </Button>
 
+        <!-- Nouvel assistant -->
+        <Button
+          variant="default"
+          size="sm"
+          class="h-8 px-3 shrink-0"
+          title="Installer un nouvel assistant sur le bureau"
+          @click="$emit('openNewAgent')"
+        >
+          <UserPlus :size="13" class="mr-1.5" />
+          <span class="hidden md:inline">Assistant</span>
+        </Button>
+
         <!-- Install PWA (QR code) -->
         <Button
           variant="outline"
@@ -119,7 +131,16 @@
 </template>
 
 <script setup lang="ts">
-import { LayoutGrid, BarChart2, Search, RefreshCw, Command, X, QrCode } from 'lucide-vue-next';
+import {
+  LayoutGrid,
+  BarChart2,
+  Search,
+  RefreshCw,
+  Command,
+  X,
+  QrCode,
+  UserPlus,
+} from 'lucide-vue-next';
 import Button from '@/components/ui/Button.vue';
 import Badge from '@/components/ui/Badge.vue';
 import TabsList from '@/components/ui/TabsList.vue';
@@ -140,5 +161,6 @@ defineEmits<{
   (e: 'update:searchQuery', value: string): void;
   (e: 'openCommandMenu'): void;
   (e: 'openInstall'): void;
+  (e: 'openNewAgent'): void;
 }>();
 </script>

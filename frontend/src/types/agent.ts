@@ -34,6 +34,19 @@ export interface UpdateAgentPayload {
   avatarSprite?: string;
 }
 
+/**
+ * Payload de création d'un assistant depuis l'interface.
+ */
+export interface CreateAgentPayload {
+  modelName: string;
+  displayName?: string;
+  role?: string;
+  systemPrompt?: string;
+  avatarSprite?: string;
+  positionX?: number;
+  positionY?: number;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   message?: string;

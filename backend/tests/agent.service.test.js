@@ -21,6 +21,16 @@ function createRepo(initialAgents = []) {
       );
       return found ? { ...found } : null;
     },
+    async findByModelName(modelName) {
+      const found = agents.find((agent) => agent.modelName === modelName);
+      return found ? { ...found } : null;
+    },
+    async create(data) {
+      sequence += 1;
+      const created = { id: `agent-${sequence}`, ...data };
+      agents.push(created);
+      return { ...created };
+    },
     async upsertByModelName(modelName, data) {
       const existing = agents.find((agent) => agent.modelName === modelName);
       if (existing) return { ...existing };
@@ -144,4 +154,86 @@ test('agent : les coordonnées hors bornes sont normalisées', async () => {
   const moved = await service.moveAgent('agent-1', -5, 999);
   assert.equal(moved.positionX, 0);
   assert.equal(moved.positionY, 63);
+});
+
+test('agent : la création place le nouvel assistant sur le premier bureau libre', async () => {
+  const repo = createRepo([
+    { id: 'agent-1', modelName: 'a:latest', positionX: 0, positionY: 0 },
+    { id: 'agent-2', modelName: 'b:latest', positionX: 1, positionY: 0 },
+  ]);
+
+  const service = new AgentService({
+    agentRepository: repo,
+    ollamaService: {
+      getLocalModels: async () => [{ name: 'c:latest', size: 1, details: {} }],
+    },
+  });
+
+  const created = await service.createAgent({ modelName: 'c:latest', displayName: 'Mon Assistant' });
+
+  assert.equal(created.modelName, 'c:latest');
+  assert.equal(created.displayName, 'Mon Assistant');
+  assert.equal(created.positionX, 2);
+  assert.equal(created.positionY, 0);
+});
+
+test('agent : la création utilise le rôle choisi pour le prompt par défaut', async () => {
+  const repo = createRepo([]);
+  const service = new AgentService({
+    agentRepository: repo,
+    ollamaService: {
+      getLocalModels: async () => [{ name: 'llama3:latest', size: 1, details: {} }],
+    },
+  });
+
+  const created = await service.createAgent({
+    modelName: 'llama3:latest',
+    role: 'Lead DevOps',
+  });
+
+  assert.equal(created.role, 'Lead DevOps');
+  assert.match(created.systemPrompt, /Lead DevOps/);
+});
+
+test('agent : la création refuse un modèle absent d’Ollama', async () => {
+  const repo = createRepo([]);
+  const service = new AgentService({
+    agentRepository: repo,
+    ollamaService: {
+      getLocalModels: async () => [{ name: 'a:latest', size: 1, details: {} }],
+    },
+  });
+
+  await assert.rejects(
+    () => service.createAgent({ modelName: 'inconnu:latest' }),
+    (error) => error.statusCode === 400
+  );
+});
+
+test('agent : la création refuse un modèle déjà affecté', async () => {
+  const repo = createRepo([{ id: 'agent-1', modelName: 'a:latest', positionX: 0, positionY: 0 }]);
+  const service = new AgentService({
+    agentRepository: repo,
+    ollamaService: {
+      getLocalModels: async () => [{ name: 'a:latest', size: 1, details: {} }],
+    },
+  });
+
+  await assert.rejects(
+    () => service.createAgent({ modelName: 'a:latest' }),
+    (error) => error.statusCode === 409
+  );
+});
+
+test('agent : la création exige un nom de modèle', async () => {
+  const repo = createRepo([]);
+  const service = new AgentService({
+    agentRepository: repo,
+    ollamaService: { getLocalModels: async () => [] },
+  });
+
+  await assert.rejects(
+    () => service.createAgent({}),
+    (error) => error.statusCode === 400
+  );
 });
