@@ -8,6 +8,7 @@ const router = Router();
 router.post('/sync', (req, res, next) => agentController.syncAgents(req, res, next));
 
 router.get('/', (req, res, next) => agentController.getAgents(req, res, next));
+router.post('/', (req, res, next) => agentController.createAgent(req, res, next));
 router.get('/:id', (req, res, next) => agentController.getAgentById(req, res, next));
 router.put('/:id', (req, res, next) => agentController.updateAgent(req, res, next));
 router.patch('/:id/position', (req, res, next) => agentController.moveAgent(req, res, next));
