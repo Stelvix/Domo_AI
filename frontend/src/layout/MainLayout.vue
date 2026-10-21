@@ -15,6 +15,7 @@
         v-model:search-query="searchQuery"
         @sync="handleSync"
         @open-command-menu="isCommandMenuOpen = true"
+        @open-install="isInstallOpen = true"
       />
 
       <!-- Alert Banner : erreurs applicatives / état d'Ollama -->
@@ -112,6 +113,9 @@
         @sync="handleSync"
         @chat="handleOpenChat"
       />
+
+      <!-- Installation PWA sur mobile (QR code) -->
+      <InstallPwaDialog v-model:open="isInstallOpen" />
     </div>
   </div>
 </template>
@@ -125,6 +129,7 @@ import AocMonitorView from '@/features/office/components/AocMonitorView.vue';
 import AgentConfigModal from '@/features/office/components/AgentConfigModal.vue';
 import ChatWindow from '@/features/chat/components/ChatWindow.vue';
 import CommandMenu from '@/components/ui/CommandMenu.vue';
+import InstallPwaDialog from '@/features/install/components/InstallPwaDialog.vue';
 import { useAgents } from '@/features/office/composables/useAgents';
 import type { Agent, UpdateAgentPayload } from '@/types/agent';
 
@@ -149,6 +154,7 @@ const {
 const activeTab = ref<'office' | 'monitor'>('office');
 const searchQuery = ref('');
 const isCommandMenuOpen = ref(false);
+const isInstallOpen = ref(false);
 
 const isChatOpen = ref(false);
 const activeChatAgent = ref<Agent | null>(null);
