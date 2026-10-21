@@ -15,6 +15,8 @@
         v-model:search-query="searchQuery"
         @sync="handleSync"
         @open-command-menu="isCommandMenuOpen = true"
+        @open-install="isInstallOpen = true"
+        @open-new-agent="isNewAgentOpen = true"
       />
 
       <!-- Alert Banner : erreurs applicatives / état d'Ollama -->
@@ -105,6 +107,9 @@
         @delete="handleDeleteAgent"
       />
 
+      <!-- Création d'un nouvel assistant -->
+      <NewAgentDialog :open="isNewAgentOpen" @close="isNewAgentOpen = false" @create="handleCreateAgent" />
+
       <!-- Command Palette (Cmd + K) -->
       <CommandMenu
         v-model:open="isCommandMenuOpen"
@@ -112,6 +117,9 @@
         @sync="handleSync"
         @chat="handleOpenChat"
       />
+
+      <!-- Installation PWA sur mobile (QR code) -->
+      <InstallPwaDialog v-model:open="isInstallOpen" />
     </div>
   </div>
 </template>
@@ -123,10 +131,12 @@ import OfficeToolbar from '@/features/office/components/OfficeToolbar.vue';
 import PixelOfficeGrid from '@/features/office/components/PixelOfficeGrid.vue';
 import AocMonitorView from '@/features/office/components/AocMonitorView.vue';
 import AgentConfigModal from '@/features/office/components/AgentConfigModal.vue';
+import NewAgentDialog from '@/features/office/components/NewAgentDialog.vue';
 import ChatWindow from '@/features/chat/components/ChatWindow.vue';
 import CommandMenu from '@/components/ui/CommandMenu.vue';
+import InstallPwaDialog from '@/features/install/components/InstallPwaDialog.vue';
 import { useAgents } from '@/features/office/composables/useAgents';
-import type { Agent, UpdateAgentPayload } from '@/types/agent';
+import type { Agent, CreateAgentPayload, UpdateAgentPayload } from '@/types/agent';
 
 const {
   agents,
@@ -143,12 +153,16 @@ const {
   updateAgent,
   moveAgent,
   removeAgent,
+  createAgent,
   clearError,
 } = useAgents();
 
 const activeTab = ref<'office' | 'monitor'>('office');
 const searchQuery = ref('');
 const isCommandMenuOpen = ref(false);
+const isInstallOpen = ref(false);
+
+const isNewAgentOpen = ref(false);
 
 const isChatOpen = ref(false);
 const activeChatAgent = ref<Agent | null>(null);
@@ -209,6 +223,20 @@ async function handleSaveConfig(
     activeChatAgent.value = { ...activeChatAgent.value, ...updated };
   }
   done(Boolean(updated));
+}
+
+/**
+ * Création d'un nouvel assistant depuis l'interface
+ */
+async function handleCreateAgent(
+  payload: CreateAgentPayload,
+  done: (success: boolean) => void
+) {
+  const created = await createAgent(payload);
+  if (created) {
+    selectAgent(created.id);
+  }
+  done(Boolean(created));
 }
 
 /**

@@ -19,6 +19,23 @@ export class AgentController {
   }
 
   /**
+   * POST /api/agents
+   * Crée un nouvel assistant depuis l'interface (modèle Ollama + rôle métier)
+   */
+  async createAgent(req, res, next) {
+    try {
+      const agent = await agentService.createAgent(req.body || {});
+      res.status(201).json({
+        success: true,
+        message: 'Assistant créé et installé sur le bureau.',
+        data: agent,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
    * GET /api/agents/:id
    * Détails d'un agent spécifique
    */

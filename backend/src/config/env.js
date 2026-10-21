@@ -52,6 +52,12 @@ export const env = {
   CHAT_HISTORY_LIMIT: parseIntEnv(process.env.CHAT_HISTORY_LIMIT, 20),
   /** Nombre de colonnes de la grille pixel art du bureau. */
   OFFICE_GRID_COLUMNS: parseIntEnv(process.env.OFFICE_GRID_COLUMNS, 4),
+  /**
+   * Adresse IP LAN de la machine hôte (joignable depuis un smartphone).
+   * Indispensable lorsque l'API tourne dans un conteneur : les interfaces du
+   * conteneur (172.17.x.x) ne sont pas accessibles depuis le réseau local.
+   */
+  HOST_LAN_IP: process.env.HOST_LAN_IP || null,
 };
 
 /**

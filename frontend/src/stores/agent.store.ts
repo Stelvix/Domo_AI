@@ -1,12 +1,19 @@
 import { defineStore } from 'pinia';
 import { agentApi } from '@/features/office/services/agent.api';
-import type { Agent, AgentStatus, UpdateAgentPayload } from '@/types/agent';
+import { ollamaApi } from '@/features/office/services/ollama.api';
+import type {
+  Agent,
+  AgentStatus,
+  CreateAgentPayload,
+  UpdateAgentPayload,
+} from '@/types/agent';
 
 interface AgentState {
   agents: Agent[];
   selectedAgentId: string | null;
   isLoading: boolean;
   isSyncing: boolean;
+  isCreating: boolean;
   error: string | null;
   lastSyncAt: Date | null;
 }
@@ -17,6 +24,7 @@ export const useAgentStore = defineStore('agent', {
     selectedAgentId: null,
     isLoading: false,
     isSyncing: false,
+    isCreating: false,
     error: null,
     lastSyncAt: null,
   }),
@@ -199,6 +207,25 @@ export const useAgentStore = defineStore('agent', {
         this.error = err.message || 'Erreur lors de la suppression de l’agent.';
         console.error('[AgentStore.removeAgent]', err);
         return false;
+      }
+    },
+
+    /**
+     * Crée un nouvel assistant depuis l'interface
+     */
+    async createAgent(payload: CreateAgentPayload): Promise<Agent | null> {
+      this.error = null;
+      this.isCreating = true;
+      try {
+        const created = await ollamaApi.createAgent(payload);
+        this.agents = [...this.agents, created];
+        return created;
+      } catch (err: any) {
+        this.error = err.message || 'Impossible de créer cet assistant.';
+        console.error('[AgentStore.createAgent]', err);
+        return null;
+      } finally {
+        this.isCreating = false;
       }
     },
 
