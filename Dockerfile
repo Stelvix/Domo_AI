@@ -5,11 +5,12 @@ FROM node:22-alpine AS frontend-builder
 WORKDIR /app
 
 # Copy monorepo manifests
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 COPY frontend/package.json ./frontend/
 COPY backend/package.json ./backend/
 
 # Install dependencies with frozen lockfile
+# (.npmrc : re-tentatives réseau renforcées pour résister aux ECONNRESET du registre)
 RUN npm ci
 
 # Copy frontend code and compile PWA
@@ -25,7 +26,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV DATABASE_URL="file:/app/data/office.db"
 
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 
