@@ -22,6 +22,9 @@ RUN npm run build --workspace=frontend
 FROM node:22-alpine AS backend-builder
 WORKDIR /app
 
+ENV NODE_ENV=production
+ENV DATABASE_URL="file:/app/data/office.db"
+
 COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/

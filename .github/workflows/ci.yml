@@ -14,6 +14,9 @@ jobs:
   backend-checks:
     name: Backend Lint, Prisma & Tests
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "file:./dev.db"
+      NODE_ENV: test
 
     steps:
       - name: Checkout repository
@@ -25,6 +28,9 @@ jobs:
           node-version: 22
           cache: 'npm'
           cache-dependency-path: package-lock.json
+
+      - name: Prepare Environment File
+        run: cp backend/.env.example backend/.env
 
       - name: Install Monorepo Dependencies
         run: npm ci
