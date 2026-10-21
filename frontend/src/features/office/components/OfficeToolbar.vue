@@ -1,8 +1,8 @@
 <template>
   <header class="sticky top-0 z-30 border-b border-border/80 bg-background/80 backdrop-blur-xl px-4 py-3 shadow-md">
-    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+    <div class="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-3">
       <!-- Left: Logo AOC & Navigation Tabs -->
-      <div class="flex items-center justify-between w-full md:w-auto space-x-4">
+      <div class="flex items-center justify-between w-full lg:w-auto space-x-4">
         <!-- Logo Hologramme AOC -->
         <div class="flex items-center space-x-2.5 cursor-pointer" @click="$emit('update:activeTab', 'office')">
           <div class="relative w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/20 to-sky-500/10 border border-cyan-500/40 flex items-center justify-center text-cyan-400 font-bold font-mono text-xs shadow-[0_0_15px_rgba(6,182,212,0.25)]">
@@ -41,17 +41,38 @@
         </TabsList>
       </div>
 
-      <!-- Right: Command Palette, Status & Sync Action -->
-      <div class="flex items-center space-x-2 w-full md:w-auto justify-end">
+      <!-- Right: Search, Command Palette, Status & Sync Action -->
+      <div class="flex items-center space-x-2 w-full lg:w-auto justify-end">
+        <!-- Recherche rapide des agents -->
+        <div class="relative flex-1 lg:flex-none max-w-xs">
+          <Search :size="13" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input
+            :value="searchQuery"
+            type="search"
+            placeholder="Rechercher un modèle, un rôle..."
+            class="w-full h-8 pl-8 pr-7 rounded-lg border border-input bg-background/60 text-[11px] font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-colors"
+            @input="$emit('update:searchQuery', ($event.target as HTMLInputElement).value)"
+          />
+          <button
+            v-if="searchQuery"
+            type="button"
+            title="Effacer la recherche"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            @click="$emit('update:searchQuery', '')"
+          >
+            <X :size="12" />
+          </button>
+        </div>
+
         <!-- Command Palette Trigger Button (Cmd + K) -->
         <Button
           variant="outline"
           size="sm"
-          class="hidden sm:inline-flex text-muted-foreground hover:text-foreground font-mono text-xs h-8 px-3"
+          class="hidden xl:inline-flex text-muted-foreground hover:text-foreground font-mono text-xs h-8 px-3"
           @click="$emit('openCommandMenu')"
         >
-          <Search :size="13" class="mr-2 text-muted-foreground" />
-          <span>Recherche rapide...</span>
+          <Command :size="13" class="mr-2 text-muted-foreground" />
+          <span>Commandes</span>
           <kbd class="ml-2 pointer-events-none inline-flex h-4 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[9px] font-medium text-muted-foreground">
             ⌘K
           </kbd>
@@ -60,7 +81,7 @@
         <!-- Ollama Connection Status Badge -->
         <Badge
           :variant="isOllamaConnected ? 'success' : 'warning'"
-          class="h-8 px-2.5 text-xs font-mono"
+          class="h-8 px-2.5 text-xs font-mono shrink-0"
         >
           <span
             class="w-2 h-2 rounded-full mr-1.5"
@@ -74,7 +95,7 @@
           variant="default"
           size="sm"
           :disabled="isSyncing"
-          class="h-8 px-3"
+          class="h-8 px-3 shrink-0"
           @click="$emit('sync')"
         >
           <RefreshCw :size="13" class="mr-1.5" :class="{ 'animate-spin': isSyncing }" />
@@ -86,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { LayoutGrid, BarChart2, Search, RefreshCw } from 'lucide-vue-next';
+import { LayoutGrid, BarChart2, Search, RefreshCw, Command, X } from 'lucide-vue-next';
 import Button from '@/components/ui/Button.vue';
 import Badge from '@/components/ui/Badge.vue';
 import TabsList from '@/components/ui/TabsList.vue';
@@ -98,11 +119,13 @@ defineProps<{
   totalCount: number;
   isSyncing: boolean;
   activeTab: 'office' | 'monitor';
+  searchQuery: string;
 }>();
 
 defineEmits<{
   (e: 'sync'): void;
   (e: 'update:activeTab', tab: 'office' | 'monitor'): void;
+  (e: 'update:searchQuery', value: string): void;
   (e: 'openCommandMenu'): void;
 }>();
 </script>

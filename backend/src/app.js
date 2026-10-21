@@ -3,7 +3,8 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { env } from './config/env.js';
+import { env, isOriginAllowed } from './config/env.js';
+import { ollamaService } from './services/ollama.service.js';
 import agentRoutes from './routes/agent.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
@@ -14,19 +15,44 @@ const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
 
 const app = express();
 
-// Security & Parsing Middlewares
-app.use(cors({
-  origin: env.CORS_ORIGIN,
-  credentials: true,
-}));
-app.use(express.json());
+/**
+ * Détermine si l'origine de la requête correspond à l'hôte qui a servi
+ * l'application (accès direct à la PWA depuis le mobile sur le réseau local).
+ */
+function isSameHost(origin, req) {
+  if (!origin) return false;
+  try {
+    return new URL(origin).host === req.headers.host;
+  } catch {
+    return false;
+  }
+}
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
+// Security & Parsing Middlewares
+app.use(
+  cors((req, callback) => {
+    const origin = req.headers.origin;
+    callback(null, {
+      origin: isOriginAllowed(origin) || isSameHost(origin, req),
+      credentials: true,
+    });
+  })
+);
+app.use(express.json({ limit: '2mb' }));
+
+// Health check endpoint : état de l'API + joignabilité d'Ollama
+app.get('/api/health', async (req, res) => {
+  const ollama = await ollamaService.checkHealth();
+
   res.status(200).json({
     status: 'ok',
     service: 'Ollama Pixel Office Backend',
     timestamp: new Date().toISOString(),
+    ollama: {
+      online: ollama.online,
+      version: ollama.version,
+      baseUrl: env.OLLAMA_BASE_URL,
+    },
   });
 });
 

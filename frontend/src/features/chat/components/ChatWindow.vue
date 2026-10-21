@@ -18,8 +18,8 @@
               <h2 class="text-sm font-bold font-mono text-foreground truncate">
                 {{ agent.displayName || agent.modelName }}
               </h2>
-              <Badge :variant="agent.status === 'online' ? 'success' : agent.status === 'thinking' ? 'warning' : 'secondary'" class="text-[9px] px-1.5 py-0">
-                {{ agent.status }}
+              <Badge :variant="isGenerating ? 'warning' : agent.status === 'online' ? 'success' : 'secondary'" class="text-[9px] px-1.5 py-0">
+                {{ isGenerating ? 'analyse' : agent.status }}
               </Badge>
             </div>
             <p class="text-[11px] font-mono text-muted-foreground truncate">{{ agent.modelName }}</p>
@@ -163,6 +163,17 @@
 
           <!-- Chat Input Area -->
           <div class="p-3 sm:p-4 bg-card/80 border-t border-border">
+            <!-- Bandeau d'état de la génération -->
+            <div
+              v-if="isGenerating"
+              class="mb-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-sky-500/10 border border-sky-500/25 text-sky-300 text-[10px] font-mono"
+            >
+              <Loader2 :size="12" class="animate-spin shrink-0" />
+              <span class="truncate">
+                {{ agent.displayName || agent.modelName }} est en train de produire sa réponse...
+              </span>
+            </div>
+
             <div class="relative flex items-end space-x-2">
               <textarea
                 v-model="inputContent"
@@ -216,6 +227,7 @@ import {
   Plus,
   MessageSquare,
   Trash2,
+  Loader2,
 } from 'lucide-vue-next';
 import Button from '@/components/ui/Button.vue';
 import Badge from '@/components/ui/Badge.vue';

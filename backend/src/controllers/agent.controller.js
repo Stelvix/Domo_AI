@@ -52,6 +52,53 @@ export class AgentController {
   }
 
   /**
+   * PATCH /api/agents/:id/position
+   * Déplace un agent sur la grille pixel art (échange automatique si la case est occupée)
+   */
+  async moveAgent(req, res, next) {
+    try {
+      const { positionX, positionY } = req.body;
+
+      if (!Number.isInteger(Number(positionX)) || !Number.isInteger(Number(positionY))) {
+        return res.status(400).json({
+          success: false,
+          error: { message: 'Les paramètres "positionX" et "positionY" doivent être des entiers.' },
+        });
+      }
+
+      const movedAgent = await agentService.moveAgent(
+        req.params.id,
+        Number(positionX),
+        Number(positionY)
+      );
+
+      res.status(200).json({
+        success: true,
+        message: 'Agent repositionné sur la grille du bureau.',
+        data: movedAgent,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * DELETE /api/agents/:id
+   * Supprime un agent du bureau (ses conversations sont supprimées en cascade)
+   */
+  async deleteAgent(req, res, next) {
+    try {
+      await agentService.deleteAgent(req.params.id);
+      res.status(200).json({
+        success: true,
+        message: 'Agent retiré du bureau avec succès.',
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
    * POST /api/agents/sync
    * Déclenche la synchronisation avec Ollama pour importer automatiquement les modèles locaux
    */

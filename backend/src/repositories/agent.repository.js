@@ -40,6 +40,15 @@ export class AgentRepository {
   }
 
   /**
+   * Recherche l'agent occupant une case de la grille pixel art
+   */
+  async findByPosition(positionX, positionY) {
+    return prisma.agentConfig.findFirst({
+      where: { positionX, positionY },
+    });
+  }
+
+  /**
    * Crée un nouvel agent
    */
   async create(data) {

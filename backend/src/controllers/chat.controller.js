@@ -1,4 +1,5 @@
 import { chatService } from '../services/chat.service.js';
+import { env } from '../config/env.js';
 
 export class ChatController {
   /**
@@ -22,28 +23,63 @@ export class ChatController {
     res.setHeader('X-Accel-Buffering', 'no'); // Pour éviter la mise en tampon par Nginx ou proxies
     res.flushHeaders?.();
 
-    await chatService.streamChatMessage({
-      agentId,
-      conversationId,
-      content,
-      onChunk: (data) => {
-        res.write(`data: ${JSON.stringify({ type: 'chunk', ...data })}\n\n`);
-      },
-      onComplete: (data) => {
-        res.write(`data: ${JSON.stringify({ type: 'done', ...data })}\n\n`);
-        res.end();
-      },
-      onError: (err) => {
-        console.error('[ChatController SSE Error]:', err);
-        res.write(
-          `data: ${JSON.stringify({
+    // Annulation de la génération lorsque le client ferme la connexion.
+    // Attention : `req.on('close')` se déclenche dès que le corps de la requête
+    // a été lu (Express le parse en JSON), il faut donc écouter la réponse.
+    const abortController = new AbortController();
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        abortController.abort();
+      }
+    });
+
+    // Keep-alive : maintient la connexion SSE ouverte pendant le chargement
+    // du modèle (les modèles locaux peuvent mettre plusieurs minutes à répondre).
+    const heartbeat = setInterval(() => {
+      if (!res.writableEnded) {
+        res.write(': heartbeat\n\n');
+      }
+    }, env.SSE_HEARTBEAT_INTERVAL_MS);
+
+    const safeWrite = (payload) => {
+      if (!res.writableEnded) {
+        res.write(`data: ${JSON.stringify(payload)}\n\n`);
+      }
+    };
+
+    try {
+      await chatService.streamChatMessage({
+        agentId,
+        conversationId,
+        content,
+        signal: abortController.signal,
+        onChunk: (data) => {
+          safeWrite({ type: 'chunk', ...data });
+        },
+        onThinking: (data) => {
+          safeWrite({ type: 'thinking', ...data });
+        },
+        onComplete: (data) => {
+          clearInterval(heartbeat);
+          safeWrite({ type: 'done', ...data });
+          res.end();
+        },
+        onError: (err) => {
+          clearInterval(heartbeat);
+          console.error('[ChatController SSE Error]:', err.message);
+          safeWrite({
             type: 'error',
             error: { message: err.message || 'Erreur pendant la génération du flux.' },
-          })}\n\n`
-        );
-        res.end();
-      },
-    });
+          });
+          res.end();
+        },
+      });
+    } catch (err) {
+      clearInterval(heartbeat);
+      next(err);
+    } finally {
+      clearInterval(heartbeat);
+    }
   }
 
   /**

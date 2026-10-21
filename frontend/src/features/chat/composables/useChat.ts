@@ -12,17 +12,49 @@ export function useChat() {
   const isGenerating = ref(false);
   const error = ref<string | null>(null);
 
+  /**
+   * Agent actuellement chargé dans la session de chat. Sert à réinitialiser
+   * l'historique lorsque l'utilisateur ouvre le terminal d'un autre agent.
+   */
+  const loadedAgentId = ref<string | null>(null);
+
   let abortController: AbortController | null = null;
+
+  /**
+   * Réinitialise l'état local de la conversation (historique + sélection).
+   */
+  function resetSession() {
+    conversations.value = [];
+    activeConversationId.value = null;
+    messages.value = [];
+    error.value = null;
+  }
 
   /**
    * Charge toutes les conversations de l'agent actif
    */
   async function loadConversations(agentId: string) {
     error.value = null;
+
+    // Changement d'agent : on purge l'état précédent pour ne pas afficher
+    // les messages d'un autre modèle.
+    if (loadedAgentId.value !== null && loadedAgentId.value !== agentId) {
+      resetSession();
+    }
+    loadedAgentId.value = agentId;
+
     try {
-      conversations.value = await chatApi.getConversations(agentId);
-      if (conversations.value.length > 0 && !activeConversationId.value) {
-        await selectConversation(conversations.value[0].id);
+      const list = await chatApi.getConversations(agentId);
+      conversations.value = list;
+
+      if (list.length > 0) {
+        const stillExists = list.some((conv) => conv.id === activeConversationId.value);
+        if (!activeConversationId.value || !stillExists) {
+          await selectConversation(list[0].id);
+        }
+      } else {
+        activeConversationId.value = null;
+        messages.value = [];
       }
     } catch (err: any) {
       error.value = err.message || 'Impossible de charger les conversations.';
@@ -52,7 +84,7 @@ export function useChat() {
     error.value = null;
     try {
       const newConv = await chatApi.createConversation(agentId, title);
-      conversations.value.unshift(newConv);
+      conversations.value = [newConv, ...conversations.value];
       activeConversationId.value = newConv.id;
       messages.value = [];
       return newConv;
@@ -91,6 +123,7 @@ export function useChat() {
       content: '',
       createdAt: new Date().toISOString(),
       isStreaming: true,
+      reasoning: '',
     };
     messages.value.push(assistantMessage);
 
@@ -111,6 +144,9 @@ export function useChat() {
         }
         assistantMessage.content += chunk;
       },
+      onThinking: (chunk: string) => {
+        assistantMessage.reasoning = (assistantMessage.reasoning || '') + chunk;
+      },
       onDone: async (_fullContent: string, conversationId: string) => {
         assistantMessage.isStreaming = false;
         isGenerating.value = false;
@@ -118,8 +154,12 @@ export function useChat() {
         abortController = null;
 
         // Actualisation de la liste des conversations pour refléter le titre / mise à jour
-        const list = await chatApi.getConversations(agentId);
-        conversations.value = list;
+        try {
+          const list = await chatApi.getConversations(agentId);
+          conversations.value = list;
+        } catch (err: any) {
+          console.error('[useChat.sendMessage.onDone]', err);
+        }
         activeConversationId.value = conversationId;
       },
       onError: (err: Error) => {
@@ -173,6 +213,8 @@ export function useChat() {
     messages,
     isGenerating,
     error,
+    loadedAgentId,
+    resetSession,
     loadConversations,
     selectConversation,
     startNewConversation,

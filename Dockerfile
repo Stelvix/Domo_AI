@@ -29,7 +29,8 @@ COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 
-# Install production dependencies
+# Install production dependencies (le CLI Prisma est une dépendance de production :
+# il est requis au runtime par docker-entrypoint.sh pour appliquer le schéma)
 RUN npm ci --omit=dev
 
 # Copy Prisma schema and generate client
@@ -74,5 +75,8 @@ USER node
 EXPOSE 3001
 
 VOLUME ["/app/data"]
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3001/api/health | grep -q '"status":"ok"' || exit 1
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--", "./docker-entrypoint.sh"]

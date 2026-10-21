@@ -1,20 +1,33 @@
 import { conversationRepository } from '../repositories/conversation.repository.js';
 import { agentRepository } from '../repositories/agent.repository.js';
 import { ollamaService } from './ollama.service.js';
+import { buildSystemPrompt } from '../config/prompts.js';
+import { createNdjsonParser } from '../utils/ndjson.js';
+import { env } from '../config/env.js';
 
 export class ChatService {
+  /**
+   * Injection de dépendances : les tests unitaires peuvent fournir des doublures.
+   * @param {{ conversationRepository?: object, agentRepository?: object, ollamaService?: object }} deps
+   */
+  constructor(deps = {}) {
+    this.conversationRepository = deps.conversationRepository ?? conversationRepository;
+    this.agentRepository = deps.agentRepository ?? agentRepository;
+    this.ollamaService = deps.ollamaService ?? ollamaService;
+  }
+
   /**
    * Récupère les conversations d'un agent
    */
   async getConversations(agentId) {
-    return conversationRepository.findByAgentId(agentId);
+    return this.conversationRepository.findByAgentId(agentId);
   }
 
   /**
    * Récupère une conversation et tous ses messages
    */
   async getConversation(conversationId) {
-    const conversation = await conversationRepository.findByIdWithMessages(conversationId);
+    const conversation = await this.conversationRepository.findByIdWithMessages(conversationId);
     if (!conversation) {
       const err = new Error(`Conversation avec l'ID "${conversationId}" introuvable.`);
       err.statusCode = 404;
@@ -27,7 +40,7 @@ export class ChatService {
    * Crée une nouvelle conversation pour un agent
    */
   async createConversation(agentId, title) {
-    const agent = await agentRepository.findById(agentId);
+    const agent = await this.agentRepository.findById(agentId);
     if (!agent) {
       const err = new Error(`Agent "${agentId}" introuvable.`);
       err.statusCode = 404;
@@ -35,15 +48,59 @@ export class ChatService {
     }
 
     const conversationTitle = title || `Discussion avec ${agent.displayName || agent.modelName}`;
-    return conversationRepository.createConversation(agentId, conversationTitle);
+    return this.conversationRepository.createConversation(agentId, conversationTitle);
   }
 
   /**
-   * Orchestre l'envoi d'un message, l'injection du prompt système et le streaming de la réponse
+   * Supprime une conversation
    */
-  async streamChatMessage({ agentId, conversationId, content, onChunk, onComplete, onError }) {
+  async deleteConversation(conversationId) {
+    return this.conversationRepository.deleteConversation(conversationId);
+  }
+
+  /**
+   * Construit le contexte LLM : prompt système AOC + historique recent.
+   * L'historique est volontairement tronqué pour éviter de saturer la fenêtre
+   * de contexte des modèles locaux.
+   */
+  #buildContext(agent, messages) {
+    const systemPrompt = buildSystemPrompt(agent);
+
+    const history = messages
+      .filter((message) => message.role === 'user' || message.role === 'assistant')
+      .slice(-env.CHAT_HISTORY_LIMIT)
+      .map((message) => ({
+        role: message.role,
+        content: message.content,
+      }));
+
+    return [
+      { role: 'system', content: systemPrompt },
+      ...history,
+    ];
+  }
+
+  /**
+   * Orchestre l'envoi d'un message, l'injection du prompt système et le streaming de la réponse.
+   *
+   * @param {{ agentId: string, conversationId?: string, content: string, signal?: AbortSignal,
+   *           onChunk: (payload: {chunk: string, conversationId: string}) => void,
+   *           onThinking?: (payload: {chunk: string, conversationId: string}) => void,
+   *           onComplete: (payload: any) => void,
+   *           onError: (error: Error) => void }} params
+   */
+  async streamChatMessage({
+    agentId,
+    conversationId,
+    content,
+    signal,
+    onChunk,
+    onThinking,
+    onComplete,
+    onError,
+  }) {
     try {
-      const agent = await agentRepository.findById(agentId);
+      const agent = await this.agentRepository.findById(agentId);
       if (!agent) {
         const err = new Error(`Agent avec l'ID "${agentId}" introuvable.`);
         err.statusCode = 404;
@@ -54,67 +111,63 @@ export class ChatService {
       let activeConversationId = conversationId;
       if (!activeConversationId) {
         const summaryTitle = content.length > 30 ? `${content.slice(0, 30)}...` : content;
-        const newConv = await conversationRepository.createConversation(agentId, summaryTitle);
+        const newConv = await this.conversationRepository.createConversation(agentId, summaryTitle);
         activeConversationId = newConv.id;
       }
 
       // Enregistrement du message utilisateur
-      await conversationRepository.createMessage(activeConversationId, 'user', content);
+      await this.conversationRepository.createMessage(activeConversationId, 'user', content);
 
-      // Récupération de l'historique récent (limité aux 20 derniers messages)
-      const existingConv = await conversationRepository.findByIdWithMessages(activeConversationId);
-      const pastMessages = (existingConv?.messages || []).map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      // Construction du contexte avec injection stricte du Prompt Système AOC / Rôle Métier
-      const systemPrompt =
-        agent.systemPrompt ||
-        `Tu es ${agent.displayName || agent.modelName}, opérant au sein du centre d'opérations AOC. Rôle : ${agent.role || 'Assistant'}. Sois concis, précis et professionnel.`;
-
-      const messagesForOllama = [
-        { role: 'system', content: systemPrompt },
-        ...pastMessages,
-      ];
+      // Récupération de l'historique (le message utilisateur vient d'être ajouté)
+      const existingConv = await this.conversationRepository.findByIdWithMessages(activeConversationId);
+      const messagesForOllama = this.#buildContext(agent, existingConv?.messages || []);
 
       // Appel au flux de streaming Ollama
-      const stream = await ollamaService.chat({
+      const stream = await this.ollamaService.chat({
         model: agent.modelName,
         messages: messagesForOllama,
         stream: true,
+        signal,
       });
+
+      if (!stream) {
+        throw new Error('Ollama n\'a pas renvoyé de flux de données exploitable.');
+      }
 
       const reader = stream.getReader();
       const decoder = new TextDecoder('utf-8');
+
       let accumulatedAssistantMessage = '';
+      let accumulatedThinking = '';
+
+      // Parseur NDJSON : tolère les objets JSON coupés par le réseau.
+      const parser = createNdjsonParser((payload) => {
+        const thinkingChunk = payload?.message?.thinking;
+        if (thinkingChunk) {
+          accumulatedThinking += thinkingChunk;
+          onThinking?.({ chunk: thinkingChunk, conversationId: activeConversationId });
+        }
+
+        const contentChunk = payload?.message?.content;
+        if (contentChunk) {
+          accumulatedAssistantMessage += contentChunk;
+          onChunk({ chunk: contentChunk, conversationId: activeConversationId });
+        }
+      });
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const rawChunk = decoder.decode(value, { stream: true });
-        // Les morceaux peuvent contenir plusieurs lignes NDJSON
-        const lines = rawChunk.split('\n').filter((line) => line.trim() !== '');
-
-        for (const line of lines) {
-          try {
-            const parsed = JSON.parse(line);
-            if (parsed.message?.content) {
-              accumulatedAssistantMessage += parsed.message.content;
-              onChunk({
-                chunk: parsed.message.content,
-                conversationId: activeConversationId,
-              });
-            }
-          } catch {
-            // Ignorer les fragments JSON partiels
-          }
-        }
+        parser.push(decoder.decode(value, { stream: true }));
       }
 
+      // Traite le dernier fragment éventuel (flux sans saut de ligne final)
+      parser.push(decoder.decode());
+      parser.flush();
+
       // Sauvegarde du message complet de l'assistant
-      const savedAssistantMessage = await conversationRepository.createMessage(
+      const savedAssistantMessage = await this.conversationRepository.createMessage(
         activeConversationId,
         'assistant',
         accumulatedAssistantMessage
@@ -124,17 +177,20 @@ export class ChatService {
         conversationId: activeConversationId,
         message: savedAssistantMessage,
         fullContent: accumulatedAssistantMessage,
+        thinking: accumulatedThinking,
       });
     } catch (err) {
+      // Une annulation utilisateur n'est pas une erreur applicative :
+      // on la restitue au frontend avec un message explicite.
+      if (err?.code === 'CLIENT_ABORTED' || err?.name === 'AbortError') {
+        const abortedError = new Error('Génération interrompue par le client.');
+        abortedError.statusCode = 499;
+        abortedError.code = 'CLIENT_ABORTED';
+        onError(abortedError);
+        return;
+      }
       onError(err);
     }
-  }
-
-  /**
-   * Supprime une conversation
-   */
-  async deleteConversation(conversationId) {
-    return conversationRepository.deleteConversation(conversationId);
   }
 }
 

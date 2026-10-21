@@ -8,8 +8,13 @@ L'interface se veut ludique et immersive : chaque LLM détecté est représenté
 
 ## 2. Rôle et Comportement du LLM (System Prompt / Persona)
 Chaque agent IA configuré dans l'application peut se voir assigner un rôle métier spécifique. De plus, le système intègre un rôle global pour structurer les interactions :
-* **Rôle Système Global :** Tu es un **Agent Operations Center (AOC)**, un superviseur technique et un assistant personnel intelligent et structuré. Ton rôle est d'aider l'utilisateur à orchestrer ses modèles locaux, à répondre avec précision, concision et efficacité, tout en adoptant la posture définie par son rôle attitré (ex: Développeur Senior, Rédacteur, DevOps, etc.).
+* **Rôle Système Global :** Tu es un **Agent Operations Center (AOC)**, un superviseur technique et un assistant personnel intelligent et structuré. Ton rôle est d'aider l'utilisateur à orchestrer ses modèles locaux, à répondre avec précision, concision et efficacité, tout en adoptant la posture définie par ton rôle attitré (ex: Développeur Senior, Rédacteur, DevOps, etc.).
 * **Gestion des rôles par agent :** Les rôles et prompts système associés sont persistés en base de données et injectés dynamiquement dans le contexte système (`system prompt`) d'Ollama lors des appels de génération (`/api/chat`).
+* **Composition du prompt :** Le prompt final est assemblé par `backend/src/config/prompts.js` dans cet ordre :
+  1. Le **rôle global AOC** (transverse à tous les agents).
+  2. L'**identité et le rôle métier** de l'agent (nom d'affichage + `role`).
+  3. Le **prompt spécifique** de l'agent (`systemPrompt`), complémentaire de la configuration par agent.
+  4. Les **consignes de sortie** (langue, concision, structure).
 
 ---
 
@@ -30,20 +35,29 @@ backend/
 │   └── schema.prisma
 ├── src/
 │   ├── config/
-│   │   └── env.js            # Configuration centralisée des variables d'environnement
+│   │   ├── env.js            # Configuration centralisée des variables d'environnement
+│   │   ├── prompts.js        # Rôle système global AOC + construction du prompt par agent
+│   │   └── prisma.js         # Instance PrismaClient (singleton)
 │   ├── controllers/
 │   │   ├── agent.controller.js
 │   │   └── chat.controller.js
-│   ├── services/
-│   │   ├── ollama.service.js   # Logique métier & communication avec l'API Ollama (injection des system prompts)
-│   │   └── agent.service.js    # Logique métier des agents & gestion des données
+│   ├── middlewares/
+│   │   └── errorHandler.js   # Gestionnaire d'erreurs global
 │   ├── repositories/
-│   │   └── agent.repository.js # Requêtes Prisma pures vers SQLite
+│   │   ├── agent.repository.js
+│   │   └── conversation.repository.js
 │   ├── routes/
 │   │   ├── agent.routes.js
 │   │   └── chat.routes.js
+│   ├── services/
+│   │   ├── ollama.service.js   # Communication avec l'API Ollama (streaming, timeouts)
+│   │   ├── agent.service.js    # Logique métier des agents & synchronisation
+│   │   └── chat.service.js     # Orchestration du chat (prompt, historique, streaming)
+│   ├── utils/
+│   │   └── ndjson.js           # Parseur NDJSON incrémental (robuste aux chunks coupés)
 │   ├── app.js                # Configuration d'Express (middlewares, CORS, routes)
-│   └── server.js             # Point d'entrée HTTP (écoute du port)
+│   └── server.js             # Point d'entrée HTTP (écoute du port, arrêt propre)
+├── tests/                    # Tests unitaires (node:test)
 ├── .env
 └── package.json
 ```
@@ -95,35 +109,41 @@ model Message {
 
 ---
 
-## 5. Architecture du Frontend (PWA - Vite / React / TypeScript)
+## 5. Architecture du Frontend (PWA - Vite / Vue 3 / TypeScript / Pinia)
 
 ### Structure des Dossiers Frontend (Feature-Driven)
 ```text
 frontend/
 ├── public/
-│   ├── manifest.json         # Manifeste PWA pour installation native
-│   └── icons/                # Icônes de l'application
+│   └── icons/                # Icônes de l'application (manifest généré par vite-plugin-pwa)
 ├── src/
-│   ├── api/                  # Clients HTTP configurés (fetch/axios)
-│   ├── components/           # Composants UI globaux réutilisables (Design System)
+│   ├── api/                  # Clients HTTP configurés (fetch wrapper typé)
+│   ├── components/ui/        # Design System (Button, Card, Dialog, Badge, Tabs, MarkdownContent...)
 │   ├── features/             # Organisation par grand domaine métier
 │   │   ├── office/           # Vue du bureau pixel art et grille des agents
-│   │   │   ├── components/   # PixelOfficeGrid, AgentDesk
-│   │   │   ├── hooks/        # Hooks spécifiques (ex: animations, états des agents)
-│   │   │   └── services/     # Appels API de la vue bureau
+│   │   │   ├── components/   # PixelOfficeGrid, AgentDesk, AocMonitorView, OfficeToolbar...
+│   │   │   ├── composables/  # Logique de la feature (useAgents)
+│   │   │   └── services/     # Appels API de la vue bureau (agent.api)
 │   │   └── chat/             # Interface de discussion avec un LLM (gestion du rôle actif)
 │   │       ├── components/   # ChatWindow, MessageBubble, RoleSelector
-│   │       └── hooks/        # Gestion du streaming des réponses
-│   ├── layout/               # Structure de l'application (Navbar, Sidebar, MainLayout)
-│   ├── router/               # Configuration des routes (React Router)
-│   ├── store/                # Gestion d'état global (Zustand / Context)
+│   │       ├── composables/  # Gestion du streaming des réponses (useChat)
+│   │       └── services/     # Appels API du chat (chat.api)
+│   ├── layout/               # Structure de l'application (MainLayout)
+│   ├── lib/                  # Utilitaires purs (cn, rendu Markdown sécurisé)
+│   ├── stores/               # Gestion d'état global (Pinia)
 │   ├── styles/               # Styles globaux & Tailwind CSS
-│   ├── App.jsx
-│   └── main.jsx
+│   ├── types/                # Contrats TypeScript partagés (agent, chat)
+│   ├── App.vue
+│   └── main.ts
 ├── index.html
-├── vite.config.js            # Configuration Vite + Plugin PWA
+├── vite.config.ts            # Configuration Vite + Plugin PWA + proxy /api
 └── package.json
 ```
+
+### Fonctionnalités Spécifiques Implémentées
+* **Grille pixel art positionnelle :** chaque agent occupe une case (`positionX`, `positionY`) de l'open-space. Les cases libres sont des bureaux vacants et le drag & drop permet de réorganiser le bureau (échange automatique des positions en cas de collision).
+* **Terminal de discussion :** rendu Markdown sécurisé (`marked` + `DOMPurify`), blocs de code avec bouton « Copier », affichage du raisonnement interne des modèles *thinking* (Qwen3, DeepSeek R1...).
+* **Moniteur HUD :** vue télémétrique de l'open-space (statuts, quantification, empreinte disque, historique).
 
 ---
 
@@ -131,5 +151,8 @@ frontend/
 * **Communication Réseau :** 
   * Le backend communique avec Ollama (par défaut sur `http://localhost:11434`).
   * Configuration requise sur la machine hôte d'Ollama : `OLLAMA_ORIGINS="*"` et `OLLAMA_HOST="0.0.0.0"` pour permettre l'accès depuis la PWA sur le réseau local.
-* **Séparation des Responsabilités :** Respect strict des couches (Route -> Controller -> Service -> Repository/ORM) pour garantir la maintenabilité et la testabilité du code.
+  * Le policy CORS accepte une liste d'origines (`CORS_ORIGIN` séparée par des virgules), autorise les origines *same-host* (accès direct à la PWA conteneurisée) et, en développement, les adresses loopback et réseau privé.
+* **Streaming SSE robuste :** le flux NDJSON d'Ollama est décodé par un parseur incrémental (`backend/src/utils/ndjson.js`) qui reconstitue les objets JSON coupés par le réseau. Un *keep-alive* (`heartbeat`) est envoyé périodiquement et la génération est annulée si le client ferme l'onglet.
+* **Séparation des Responsabilités :** Respect strict des couches (Route -> Controller -> Service -> Repository/ORM) pour garantir la maintenabilité et la testabilité du code. Les services acceptent leurs dépendances par injection pour permettre les tests unitaires.
 * **Expérience PWA :** Utilisation de `vite-plugin-pwa` pour la mise en cache des assets et une installation fluide sur le bureau et le mobile.
+* **Qualité :** suite de tests backend `node --test` (17 tests) exécutée par la CI GitHub Actions.

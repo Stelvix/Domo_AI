@@ -13,7 +13,7 @@
       </div>
 
       <!-- Dialog Body -->
-      <div class="space-y-4 text-xs font-mono">
+      <div class="space-y-4 text-xs font-mono max-h-[60vh] overflow-y-auto pr-1">
         <!-- Avatar Style Selection -->
         <div>
           <label class="block text-xs font-bold text-foreground mb-2">Sprite Pixel Art</label>
@@ -79,6 +79,53 @@
             placeholder="Instructions de comportement pour ce LLM..."
             class="resize-none text-xs leading-relaxed"
           />
+          <p class="mt-1.5 text-[10px] text-muted-foreground leading-relaxed">
+            Ce prompt s'ajoute au rôle système global de l'AOC injecté par le backend.
+          </p>
+        </div>
+
+        <!-- Position dans la grille pixel art -->
+        <div>
+          <label class="block text-xs font-bold text-foreground mb-1.5">Position dans l'open-space</label>
+          <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1">
+              <span class="text-[10px] text-muted-foreground mr-1">X</span>
+              <Input
+                v-model.number="form.positionX"
+                type="number"
+                min="0"
+                max="63"
+                class="w-20"
+              />
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="text-[10px] text-muted-foreground mr-1">Y</span>
+              <Input
+                v-model.number="form.positionY"
+                type="number"
+                min="0"
+                max="63"
+                class="w-20"
+              />
+            </div>
+            <span class="text-[10px] text-muted-foreground">
+              (la grille fait 4 colonnes - glissez-déposez plutôt :)
+            </span>
+          </div>
+        </div>
+
+        <!-- Suppression de l'agent -->
+        <div class="pt-3 border-t border-border/60">
+          <Button
+            variant="outline"
+            size="sm"
+            class="w-full text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+            :disabled="isDeleting"
+            @click="confirmDelete"
+          >
+            <Trash2 :size="13" class="mr-1.5" />
+            {{ isDeleting ? 'Suppression...' : 'Retirer cet agent du bureau' }}
+          </Button>
         </div>
       </div>
 
@@ -97,6 +144,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { Trash2 } from 'lucide-vue-next';
 import Dialog from '@/components/ui/Dialog.vue';
 import Input from '@/components/ui/Input.vue';
 import Textarea from '@/components/ui/Textarea.vue';
@@ -111,7 +159,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void;
-  (e: 'save', payload: { id: string; data: UpdateAgentPayload }): void;
+  (e: 'save', payload: { id: string; data: UpdateAgentPayload }, done: (success: boolean) => void): void;
+  (e: 'delete', id: string, done: (success: boolean) => void): void;
 }>();
 
 const spriteOptions = ['agent-1', 'agent-2', 'agent-3', 'agent-4', 'agent-5', 'agent-6'];
@@ -144,9 +193,12 @@ const form = ref<UpdateAgentPayload>({
   role: '',
   systemPrompt: '',
   avatarSprite: 'agent-1',
+  positionX: 0,
+  positionY: 0,
 });
 
 const isSaving = ref(false);
+const isDeleting = ref(false);
 
 watch(
   () => props.agent,
@@ -157,6 +209,8 @@ watch(
         role: newAgent.role || 'Assistant AOC',
         systemPrompt: newAgent.systemPrompt || '',
         avatarSprite: newAgent.avatarSprite || 'agent-1',
+        positionX: newAgent.positionX ?? 0,
+        positionY: newAgent.positionY ?? 0,
       };
     }
   },
@@ -169,13 +223,29 @@ function applyPreset(preset: (typeof rolePresets)[0]) {
 }
 
 function save() {
-  if (!props.agent) return;
+  if (!props.agent || isSaving.value) return;
   isSaving.value = true;
-  emit('save', {
-    id: props.agent.id,
-    data: { ...form.value },
+
+  emit(
+    'save',
+    {
+      id: props.agent.id,
+      data: { ...form.value },
+    },
+    (success: boolean) => {
+      isSaving.value = false;
+      if (success) emit('close');
+    }
+  );
+}
+
+function confirmDelete() {
+  if (!props.agent || isDeleting.value) return;
+  isDeleting.value = true;
+
+  emit('delete', props.agent.id, (success: boolean) => {
+    isDeleting.value = false;
+    if (success) emit('close');
   });
-  isSaving.value = false;
-  emit('close');
 }
 </script>

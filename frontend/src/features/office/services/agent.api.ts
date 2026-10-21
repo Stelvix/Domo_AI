@@ -33,4 +33,22 @@ export const agentApi = {
     const res = await apiClient.put<ApiResponse<Agent>>(`/agents/${id}`, payload);
     return res.data;
   },
+
+  /**
+   * Déplace un agent sur la grille pixel art (échange automatique si la case est occupée)
+   */
+  async moveAgent(id: string, positionX: number, positionY: number): Promise<Agent> {
+    const res = await apiClient.patch<ApiResponse<Agent>>(`/agents/${id}/position`, {
+      positionX,
+      positionY,
+    });
+    return res.data;
+  },
+
+  /**
+   * Retire un agent du bureau
+   */
+  async deleteAgent(id: string): Promise<void> {
+    await apiClient.delete<ApiResponse<void>>(`/agents/${id}`);
+  },
 };

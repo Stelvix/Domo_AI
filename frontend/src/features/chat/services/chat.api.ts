@@ -40,12 +40,14 @@ export const chatApi = {
   async streamChat({
     payload,
     onChunk,
+    onThinking,
     onDone,
     onError,
     signal,
   }: {
     payload: SendMessagePayload;
     onChunk: (chunk: string, conversationId: string) => void;
+    onThinking?: (chunk: string, conversationId: string) => void;
     onDone: (fullContent: string, conversationId: string) => void;
     onError: (err: Error) => void;
     signal?: AbortSignal;
@@ -90,6 +92,7 @@ export const chatApi = {
 
         for (const line of lines) {
           const trimmed = line.trim();
+          // Les keep-alive du serveur sont des commentaires SSE (" : heartbeat")
           if (!trimmed || !trimmed.startsWith('data: ')) continue;
 
           const jsonStr = trimmed.slice(6);
@@ -98,6 +101,8 @@ export const chatApi = {
 
             if (event.type === 'chunk') {
               onChunk(event.chunk, event.conversationId);
+            } else if (event.type === 'thinking') {
+              onThinking?.(event.chunk, event.conversationId);
             } else if (event.type === 'done') {
               onDone(event.fullContent, event.conversationId);
             } else if (event.type === 'error') {

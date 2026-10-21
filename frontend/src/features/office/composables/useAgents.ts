@@ -20,6 +20,10 @@ export function useAgents() {
   const syncWithOllama = () => store.syncWithOllama();
   const selectAgent = (id: string | null) => store.selectAgent(id);
   const updateAgent = (id: string, payload: UpdateAgentPayload) => store.updateAgentConfig(id, payload);
+  const moveAgent = (id: string, positionX: number, positionY: number) =>
+    store.moveAgent(id, positionX, positionY);
+  const removeAgent = (id: string) => store.removeAgent(id);
+  const clearError = () => store.clearError();
   const getAgentAtPosition = (x: number, y: number) => store.getAgentAtPosition(x, y);
 
   return {
@@ -40,6 +44,9 @@ export function useAgents() {
     syncWithOllama,
     selectAgent,
     updateAgent,
+    moveAgent,
+    removeAgent,
+    clearError,
     getAgentAtPosition,
   };
 }

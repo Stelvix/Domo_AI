@@ -5,6 +5,8 @@ export interface ChatMessage {
   content: string;
   createdAt: string;
   isStreaming?: boolean;
+  /** Raisonnement interne des modèles "thinking" (Qwen3, DeepSeek R1...). */
+  reasoning?: string;
 }
 
 export interface Conversation {
@@ -28,10 +30,17 @@ export interface StreamChunkEvent {
   conversationId: string;
 }
 
+export interface StreamThinkingEvent {
+  type: 'thinking';
+  chunk: string;
+  conversationId: string;
+}
+
 export interface StreamDoneEvent {
   type: 'done';
   conversationId: string;
   fullContent: string;
+  thinking?: string;
   message: ChatMessage;
 }
 
@@ -42,4 +51,8 @@ export interface StreamErrorEvent {
   };
 }
 
-export type StreamEvent = StreamChunkEvent | StreamDoneEvent | StreamErrorEvent;
+export type StreamEvent =
+  | StreamChunkEvent
+  | StreamThinkingEvent
+  | StreamDoneEvent
+  | StreamErrorEvent;

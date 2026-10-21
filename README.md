@@ -8,13 +8,14 @@ Conçu sous la forme d'une **PWA (Progressive Web App)** moderne et responsive (
 
 ## 🌟 Fonctionnalités Clés
 
-* **🏢 Bureau Virtuel Pixel Art :** Chaque modèle Ollama détecté dispose de son propre poste de travail animé (état en direct : *En ligne*, *En réflexion*, *Hors-ligne*).
-* **💬 Terminal de Discussion & Streaming SSE :** Échanges instantanés en streaming temps réel via **Server-Sent Events (SSE)** avec support du formatage markdown et copie de code.
-* **🎭 Injection Dynamique de Rôles Métier :** Personnalisation des rôles (*Lead Développeur*, *Expert DevOps*, *Auditeur de Code*, etc.) et injection automatique du prompt système dans Ollama lors des inférences.
-* **🔄 Synchronisation Automatique avec Ollama :** Détection des nouveaux modèles téléchargés (`ollama pull`) et import automatique en un clic.
-* **📱 Progressive Web App (PWA) :** Installable sur mobile et bureau, mode plein écran, mise en cache hors-ligne via Workbox et Service Workers.
-* **🐳 Déploiement Conteneurisé Production-Ready :** Image Docker multi-stage optimisée sous Alpine Linux avec orchestration `docker-compose`.
-* **⚙️ Pipeline CI/CD Complète :** Intégration continue GitHub Actions validant le typage statique, Prisma et la construction de l'image Docker.
+* **🏢 Bureau Virtuel Pixel Art Positionnel :** chaque modèle Ollama détecté occupe un poste de travail sur une grille d'open-space (état en direct : *En ligne*, *En réflexion*, *Hors-ligne*). Glissez-déposez les agents d'un bureau à l'autre pour réorganiser l'espace de travail (les positions sont persistées en base).
+* **💬 Terminal de Discussion & Streaming SSE :** échanges instantanés en streaming temps réel via **Server-Sent Events (SSE)** avec support du formatage **Markdown**, **copie de code** en un clic et affichage du **raisonnement interne** des modèles *thinking* (Qwen3, DeepSeek R1...).
+* **🎭 Injection Dynamique de Rôles Métier :** personnalisation des rôles (*Lead Développeur*, *Expert DevOps*, *Auditeur de Code*, etc.) et injection automatique d'un prompt système composite (rôle global AOC + rôle métier + prompt spécifique) dans Ollama lors des inférences.
+* **🔄 Synchronisation Automatique avec Ollama :** détection des nouveaux modèles téléchargés (`ollama pull`) et import automatique en un clic, sans jamais écraser votre configuration personnalisée.
+* **📱 Progressive Web App (PWA) :** installable sur mobile et bureau, mode plein écran, mise en cache hors-ligne via Workbox et Service Workers.
+* **🛡️ Streaming Robuste :** parseur NDJSON incrémental (aucun contenu perdu si le réseau coupe un chunk), keep-alive SSE pendant le chargement du modèle et annulation propre de la génération à la fermeture de l'onglet.
+* **🐳 Déploiement Conteneurisé Production-Ready :** image Docker multi-stage optimisée sous Alpine Linux avec orchestration `docker-compose`.
+* **🧪 Pipeline CI/CD Complète :** intégration continue GitHub Actions validant le typage statique, les tests unitaires backend, Prisma et la construction de l'image Docker.
 
 ---
 
@@ -76,6 +77,8 @@ npm run dev
 * **Frontend :** Ouvrez votre navigateur sur `http://localhost:5173`
 * **Backend API :** Accessible sur `http://localhost:3001/api/health`
 
+> **Accès mobile (PWA) :** le serveur Vite écoute sur toutes les interfaces réseau. Depuis votre smartphone, ouvrez `http://<ip-de-votre-pc>:5173` puis installez l'application via le menu du navigateur. En développement, les origines du réseau local sont automatiquement autorisées par la politique CORS.
+
 ---
 
 ## 🐳 Déploiement en Production via Docker
@@ -104,8 +107,28 @@ L'application est disponible immédiatement sur : **`http://localhost:3001`**.
 | `npm run dev:backend` | Démarre le serveur Express en mode nodemon |
 | `npm run dev:frontend` | Démarre le serveur Vite en mode développement |
 | `npm run build` | Compile la PWA frontend avec vérification TypeScript (`vue-tsc`) |
+| `npm test` | Exécute la suite de tests unitaires backend (`node --test`) |
 | `npm run prisma:push` | Synchronise le schéma Prisma avec la base de données SQLite |
 | `npm run prisma:studio` | Ouvre l'interface graphique Prisma Studio pour visualiser les données |
+
+---
+
+## 🔌 API Backend
+
+| Méthode | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/health` | État de l'API + joignabilité et version d'Ollama |
+| `GET` | `/api/agents` | Liste des agents avec statut et métadonnées du modèle |
+| `POST` | `/api/agents/sync` | Synchronise les modèles Ollama (import non destructif) |
+| `GET` | `/api/agents/:id` | Détails d'un agent |
+| `PUT` | `/api/agents/:id` | Met à jour rôle, prompt, sprite et position |
+| `PATCH` | `/api/agents/:id/position` | Déplace un agent sur la grille (échange si occupé) |
+| `DELETE` | `/api/agents/:id` | Retire un agent du bureau (cascade sur les conversations) |
+| `POST` | `/api/chat` | Envoi d'un message — réponse en streaming SSE |
+| `GET` | `/api/chat/conversations/agent/:agentId` | Historique des discussions d'un agent |
+| `POST` | `/api/chat/conversations` | Crée une nouvelle conversation |
+| `GET` | `/api/chat/conversations/:id/messages` | Messages d'une conversation |
+| `DELETE` | `/api/chat/conversations/:id` | Supprime une conversation |
 
 ---
 
@@ -117,9 +140,13 @@ Le fichier `.env` du backend (`backend/.env`) supporte les variables suivantes :
 PORT=3001
 DATABASE_URL="file:./dev.db"
 OLLAMA_BASE_URL="http://127.0.0.1:11434"
-CORS_ORIGIN="http://localhost:5173"
+CORS_ORIGIN="http://localhost:5173"   # Liste d'origines séparées par des virgules
 NODE_ENV="development"
 SERVE_STATIC="false"
+OLLAMA_TIMEOUT_MS=600000               # Timeout de génération (chargement du modèle inclus)
+SSE_HEARTBEAT_INTERVAL_MS=15000        # Intervalle des keep-alive SSE
+CHAT_HISTORY_LIMIT=20                  # Messages d'historique réinjectés dans le contexte
+OFFICE_GRID_COLUMNS=4                  # Colonnes de la grille pixel art
 ```
 
 ---
@@ -127,6 +154,6 @@ SERVE_STATIC="false"
 ## 🔄 Pipeline CI/CD
 
 Le workflow GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) s'exécute automatiquement sur `push` et `pull_request` :
-1. **Validation Backend :** Validation du schéma Prisma, génération du client ORM et vérification syntaxique du serveur Node.js.
-2. **Validation Frontend :** Type-check TypeScript strict (`vue-tsc --noEmit`), build Vite et validation du Service Worker PWA.
-3. **Build Docker :** Validation de la construction de l'image de production multi-stage avec cache GHA.
+1. **Validation Backend :** validation du schéma Prisma, génération du client ORM, exécution de la suite de tests unitaires (`npm test`) et vérification syntaxique du serveur Node.js.
+2. **Validation Frontend :** type-check TypeScript strict (`vue-tsc --noEmit`), build Vite et validation du Service Worker PWA.
+3. **Build Docker :** validation de la construction de l'image de production multi-stage avec cache GHA.

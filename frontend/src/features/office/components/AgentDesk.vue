@@ -1,11 +1,14 @@
 <template>
   <Card
-    class="group relative flex flex-col transition-all duration-300 cursor-pointer overflow-hidden hover:border-sky-500/50 hover:shadow-[0_0_20px_rgba(56,189,248,0.15)] hover:-translate-y-1 bg-gradient-to-b from-card to-card/90"
+    class="group relative flex flex-col h-full transition-all duration-300 cursor-pointer overflow-hidden hover:border-sky-500/50 hover:shadow-[0_0_20px_rgba(56,189,248,0.15)] hover:-translate-y-1 bg-gradient-to-b from-card to-card/90"
     :class="[
       isSelected ? 'border-primary ring-1 ring-primary/40 shadow-lg shadow-primary/10' : 'border-border/70',
       agent.status === 'offline' ? 'opacity-70 saturate-50' : '',
+      isDragging ? 'opacity-40 scale-95' : '',
     ]"
     @click="$emit('select', agent.id)"
+    @dragstart="$emit('drag-start', agent)"
+    @dragend="$emit('drag-end')"
   >
     <!-- Background grid decoration inside card -->
     <div class="absolute inset-0 bg-grid-pattern opacity-10 pointer-events-none"></div>
@@ -154,12 +157,15 @@ import type { Agent } from '@/types/agent';
 defineProps<{
   agent: Agent;
   isSelected?: boolean;
+  isDragging?: boolean;
 }>();
 
 defineEmits<{
   (e: 'select', id: string): void;
   (e: 'chat', agent: Agent): void;
   (e: 'configure', agent: Agent): void;
+  (e: 'drag-start', agent: Agent): void;
+  (e: 'drag-end'): void;
 }>();
 
 function formatBytes(bytes: number): string {

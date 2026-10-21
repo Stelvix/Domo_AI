@@ -12,9 +12,45 @@
         :total-count="totalCount"
         :is-syncing="isSyncing"
         v-model:active-tab="activeTab"
+        v-model:search-query="searchQuery"
         @sync="handleSync"
         @open-command-menu="isCommandMenuOpen = true"
       />
+
+      <!-- Alert Banner : erreurs applicatives / état d'Ollama -->
+      <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 mt-3 space-y-2">
+        <div
+          v-if="error"
+          class="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-destructive/15 border border-destructive/40 text-destructive-foreground text-xs font-mono"
+        >
+          <span class="flex items-center gap-2">
+            <AlertTriangle :size="14" class="shrink-0" />
+            {{ error }}
+          </span>
+          <button type="button" class="shrink-0 opacity-70 hover:opacity-100" @click="clearError">
+            <X :size="14" />
+          </button>
+        </div>
+
+        <div
+          v-if="!isOllamaConnected && !isLoading"
+          class="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono"
+        >
+          <ServerOff :size="14" class="shrink-0" />
+          <span>
+            Ollama est injoignable. Lancez <code class="px-1 rounded bg-amber-500/15">ollama serve</code>
+            puis cliquez sur « Sync » pour détecter vos modèles locaux.
+          </span>
+        </div>
+
+        <div
+          v-if="isBrowserOffline"
+          class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-500/10 border border-slate-500/30 text-slate-300 text-xs font-mono"
+        >
+          <WifiOff :size="14" class="shrink-0" />
+          <span>Connexion réseau perdue — l'application fonctionne en mode hors-ligne.</span>
+        </div>
+      </div>
 
       <!-- Main Content Container -->
       <main class="flex-1 flex flex-col relative overflow-x-hidden">
@@ -35,6 +71,7 @@
             @select="handleSelectAgent"
             @chat="handleOpenChat"
             @configure="handleOpenConfig"
+            @move="handleMoveAgent"
             @sync="handleSync"
           />
         </div>
@@ -65,6 +102,7 @@
         :agent="activeConfigAgent"
         @close="isConfigOpen = false"
         @save="handleSaveConfig"
+        @delete="handleDeleteAgent"
       />
 
       <!-- Command Palette (Cmd + K) -->
@@ -79,8 +117,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { RefreshCw } from 'lucide-vue-next';
+import { ref, onMounted, onUnmounted } from 'vue';
+import { RefreshCw, X, AlertTriangle, ServerOff, WifiOff } from 'lucide-vue-next';
 import OfficeToolbar from '@/features/office/components/OfficeToolbar.vue';
 import PixelOfficeGrid from '@/features/office/components/PixelOfficeGrid.vue';
 import AocMonitorView from '@/features/office/components/AocMonitorView.vue';
@@ -98,10 +136,14 @@ const {
   isOllamaConnected,
   isLoading,
   isSyncing,
+  error,
   loadAgents,
   syncWithOllama,
   selectAgent,
   updateAgent,
+  moveAgent,
+  removeAgent,
+  clearError,
 } = useAgents();
 
 const activeTab = ref<'office' | 'monitor'>('office');
@@ -114,11 +156,29 @@ const activeChatAgent = ref<Agent | null>(null);
 const isConfigOpen = ref(false);
 const activeConfigAgent = ref<Agent | null>(null);
 
+const isBrowserOffline = ref(!navigator.onLine);
+
+function handleOnline() {
+  isBrowserOffline.value = false;
+}
+
+function handleOffline() {
+  isBrowserOffline.value = true;
+}
+
 onMounted(async () => {
+  window.addEventListener('online', handleOnline);
+  window.addEventListener('offline', handleOffline);
+
   await loadAgents();
   if (agents.value.length === 0) {
     await syncWithOllama();
   }
+});
+
+onUnmounted(() => {
+  window.removeEventListener('online', handleOnline);
+  window.removeEventListener('offline', handleOffline);
 });
 
 function handleSelectAgent(id: string) {
@@ -140,10 +200,43 @@ async function handleSync() {
   await syncWithOllama();
 }
 
-async function handleSaveConfig({ id, data }: { id: string; data: UpdateAgentPayload }) {
-  await updateAgent(id, data);
-  if (activeChatAgent.value && activeChatAgent.value.id === id) {
-    activeChatAgent.value = { ...activeChatAgent.value, ...data };
+async function handleSaveConfig(
+  { id, data }: { id: string; data: UpdateAgentPayload },
+  done: (success: boolean) => void
+) {
+  const updated = await updateAgent(id, data);
+  if (updated && activeChatAgent.value?.id === id) {
+    activeChatAgent.value = { ...activeChatAgent.value, ...updated };
   }
+  done(Boolean(updated));
+}
+
+/**
+ * Déplacement d'un agent sur la grille pixel art (drag & drop)
+ */
+async function handleMoveAgent({
+  id,
+  positionX,
+  positionY,
+}: {
+  id: string;
+  positionX: number;
+  positionY: number;
+}) {
+  await moveAgent(id, positionX, positionY);
+}
+
+/**
+ * Suppression d'un agent du bureau
+ */
+async function handleDeleteAgent(id: string, done: (success: boolean) => void) {
+  const removed = await removeAgent(id);
+  if (removed) {
+    if (activeChatAgent.value?.id === id) {
+      activeChatAgent.value = null;
+      isChatOpen.value = false;
+    }
+  }
+  done(removed);
 }
 </script>
