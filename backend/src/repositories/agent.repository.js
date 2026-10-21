@@ -1,11 +1,18 @@
-import prisma from '../config/prisma.js';
+import { getPrisma } from '../config/prisma.js';
 
 export class AgentRepository {
+  /**
+   * Client Prisma (instancié à la première requête).
+   */
+  get prisma() {
+    return getPrisma();
+  }
+
   /**
    * Récupère tous les agents enregistrés
    */
   async findAll() {
-    return prisma.agentConfig.findMany({
+    return this.prisma.agentConfig.findMany({
       orderBy: { createdAt: 'asc' },
       include: {
         _count: {
@@ -19,7 +26,7 @@ export class AgentRepository {
    * Recherche un agent par son identifiant unique UUID
    */
   async findById(id) {
-    return prisma.agentConfig.findUnique({
+    return this.prisma.agentConfig.findUnique({
       where: { id },
       include: {
         conversations: {
@@ -34,7 +41,7 @@ export class AgentRepository {
    * Recherche un agent par le nom technique de son modèle Ollama
    */
   async findByModelName(modelName) {
-    return prisma.agentConfig.findUnique({
+    return this.prisma.agentConfig.findUnique({
       where: { modelName },
     });
   }
@@ -43,7 +50,7 @@ export class AgentRepository {
    * Recherche l'agent occupant une case de la grille pixel art
    */
   async findByPosition(positionX, positionY) {
-    return prisma.agentConfig.findFirst({
+    return this.prisma.agentConfig.findFirst({
       where: { positionX, positionY },
     });
   }
@@ -52,7 +59,7 @@ export class AgentRepository {
    * Crée un nouvel agent
    */
   async create(data) {
-    return prisma.agentConfig.create({
+    return this.prisma.agentConfig.create({
       data,
     });
   }
@@ -61,7 +68,7 @@ export class AgentRepository {
    * Met à jour la configuration d'un agent
    */
   async update(id, data) {
-    return prisma.agentConfig.update({
+    return this.prisma.agentConfig.update({
       where: { id },
       data,
     });
@@ -71,7 +78,7 @@ export class AgentRepository {
    * Met à jour ou insère un agent selon le nom de modèle
    */
   async upsertByModelName(modelName, defaultData) {
-    return prisma.agentConfig.upsert({
+    return this.prisma.agentConfig.upsert({
       where: { modelName },
       update: {}, // Conserve les réglages personnalisés existants (rôle, position, etc.)
       create: {
@@ -90,7 +97,7 @@ export class AgentRepository {
    * Supprime un agent
    */
   async delete(id) {
-    return prisma.agentConfig.delete({
+    return this.prisma.agentConfig.delete({
       where: { id },
     });
   }
@@ -99,7 +106,7 @@ export class AgentRepository {
    * Compte le nombre d'agents
    */
   async count() {
-    return prisma.agentConfig.count();
+    return this.prisma.agentConfig.count();
   }
 }
 

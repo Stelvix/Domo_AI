@@ -1,11 +1,18 @@
-import prisma from '../config/prisma.js';
+import { getPrisma } from '../config/prisma.js';
 
 export class ConversationRepository {
+  /**
+   * Client Prisma (instancié à la première requête).
+   */
+  get prisma() {
+    return getPrisma();
+  }
+
   /**
    * Crée une nouvelle conversation pour un agent donné
    */
   async createConversation(agentId, title = 'Nouvelle discussion') {
-    return prisma.conversation.create({
+    return this.prisma.conversation.create({
       data: {
         agentId,
         title,
@@ -20,7 +27,7 @@ export class ConversationRepository {
    * Récupère la liste des conversations associées à un agent
    */
   async findByAgentId(agentId) {
-    return prisma.conversation.findMany({
+    return this.prisma.conversation.findMany({
       where: { agentId },
       orderBy: { updatedAt: 'desc' },
       include: {
@@ -36,7 +43,7 @@ export class ConversationRepository {
    * Récupère une conversation spécifique avec l'historique complet des messages
    */
   async findByIdWithMessages(conversationId) {
-    return prisma.conversation.findUnique({
+    return this.prisma.conversation.findUnique({
       where: { id: conversationId },
       include: {
         agent: true,
@@ -51,15 +58,15 @@ export class ConversationRepository {
    * Enregistre un message dans une conversation et actualise l'horodatage de celle-ci
    */
   async createMessage(conversationId, role, content) {
-    const [message] = await prisma.$transaction([
-      prisma.message.create({
+    const [message] = await this.prisma.$transaction([
+      this.prisma.message.create({
         data: {
           conversationId,
           role,
           content,
         },
       }),
-      prisma.conversation.update({
+      this.prisma.conversation.update({
         where: { id: conversationId },
         data: { updatedAt: new Date() },
       }),
@@ -71,7 +78,7 @@ export class ConversationRepository {
    * Supprime une conversation et ses messages en cascade
    */
   async deleteConversation(conversationId) {
-    return prisma.conversation.delete({
+    return this.prisma.conversation.delete({
       where: { id: conversationId },
     });
   }
